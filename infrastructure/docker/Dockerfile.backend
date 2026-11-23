@@ -1,0 +1,22 @@
+# Multi-stage build for Spring Boot Backend
+FROM eclipse-temurin:21-jdk-alpine AS builder
+WORKDIR /workspace/app
+
+# Copy maven wrapper & pom
+COPY pom.xml ./
+COPY src ./src
+
+# Package backend
+RUN apk add --no-cache maven && \
+    mvn clean package -DskipTests
+
+# Runtime image
+FROM eclipse-temurin:21-jre-alpine
+WORKDIR /app
+RUN addgroup -S spring && adduser -S spring -G spring
+USER spring:spring
+
+COPY --from=builder /workspace/app/target/*.jar app.jar
+
+EXPOSE 8080
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]

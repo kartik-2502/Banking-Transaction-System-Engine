@@ -1,6 +1,6 @@
 # Multi-Threaded Banking Transaction Processing System
 
-A high-concurrency, fault-tolerant, auditable core banking transaction engine built with **Java 17+**, **Spring Boot 3**, **PostgreSQL**, and **React + TypeScript (Vite)**.
+A high-concurrency, fault-tolerant, auditable core banking transaction engine built with **Java 17 LTS**, **Spring Boot 3**, **PostgreSQL**, and **React + TypeScript (Vite)**.
 
 Designed for high-throughput banking operations (handling 50,000+ simulated transactions), preserving strict financial invariants under intense concurrent workloads.
 

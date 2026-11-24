@@ -1,5 +1,5 @@
-# Multi-stage build for Spring Boot Backend
-FROM eclipse-temurin:21-jdk-alpine AS builder
+# Multi-stage build for Spring Boot Backend (Java 17 LTS)
+FROM eclipse-temurin:17-jdk-alpine AS builder
 WORKDIR /workspace/app
 
 # Copy maven wrapper & pom
@@ -10,8 +10,8 @@ COPY src ./src
 RUN apk add --no-cache maven && \
     mvn clean package -DskipTests
 
-# Runtime image
-FROM eclipse-temurin:21-jre-alpine
+# Runtime image (Java 17 LTS)
+FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
 RUN addgroup -S spring && adduser -S spring -G spring
 USER spring:spring

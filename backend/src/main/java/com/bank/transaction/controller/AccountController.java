@@ -9,6 +9,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -24,6 +25,7 @@ public class AccountController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'TELLER')")
     public ResponseEntity<ApiResponse<AccountResponse>> createAccount(@Valid @RequestBody AccountCreateRequest request) {
         AccountResponse response = accountService.createAccount(request);
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -31,6 +33,7 @@ public class AccountController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'TELLER', 'RISK_ANALYST')")
     public ResponseEntity<ApiResponse<Page<AccountResponse>>> getAllAccounts(
             @RequestParam(name = "status", required = false) AccountStatus status,
             @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
@@ -39,6 +42,7 @@ public class AccountController {
     }
 
     @GetMapping("/{accountNumber}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TELLER', 'RISK_ANALYST', 'CUSTOMER')")
     public ResponseEntity<ApiResponse<AccountResponse>> getAccountByNumber(
             @PathVariable("accountNumber") String accountNumber) {
         AccountResponse response = accountService.getAccountByAccountNumber(accountNumber);
@@ -46,6 +50,7 @@ public class AccountController {
     }
 
     @PutMapping("/{accountNumber}/status")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RISK_ANALYST')")
     public ResponseEntity<ApiResponse<AccountResponse>> updateAccountStatus(
             @PathVariable("accountNumber") String accountNumber,
             @Valid @RequestBody AccountStatusUpdateRequest request) {
@@ -54,6 +59,7 @@ public class AccountController {
     }
 
     @GetMapping("/{accountNumber}/history")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RISK_ANALYST', 'TELLER')")
     public ResponseEntity<ApiResponse<List<AccountStatusHistoryResponse>>> getAccountStatusHistory(
             @PathVariable("accountNumber") String accountNumber) {
         List<AccountStatusHistoryResponse> history = accountService.getAccountStatusHistory(accountNumber);

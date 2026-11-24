@@ -8,6 +8,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -23,6 +24,7 @@ public class CustomerController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<CustomerResponse>> createCustomer(@Valid @RequestBody CustomerCreateRequest request) {
         CustomerResponse response = customerService.createCustomer(request);
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -30,6 +32,7 @@ public class CustomerController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'TELLER')")
     public ResponseEntity<ApiResponse<Page<CustomerResponse>>> getAllCustomers(
             @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
         Page<CustomerResponse> customers = customerService.getAllCustomers(pageable);
@@ -37,6 +40,7 @@ public class CustomerController {
     }
 
     @GetMapping("/{customerNumber}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TELLER', 'CUSTOMER')")
     public ResponseEntity<ApiResponse<CustomerResponse>> getCustomerByNumber(
             @PathVariable("customerNumber") String customerNumber) {
         CustomerResponse response = customerService.getCustomerByCustomerNumber(customerNumber);
@@ -44,6 +48,7 @@ public class CustomerController {
     }
 
     @PutMapping("/{customerNumber}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'CUSTOMER')")
     public ResponseEntity<ApiResponse<CustomerResponse>> updateCustomer(
             @PathVariable("customerNumber") String customerNumber,
             @Valid @RequestBody CustomerUpdateRequest request) {
@@ -52,6 +57,7 @@ public class CustomerController {
     }
 
     @GetMapping("/{customerNumber}/accounts")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TELLER', 'CUSTOMER')")
     public ResponseEntity<ApiResponse<List<AccountResponse>>> getCustomerAccounts(
             @PathVariable("customerNumber") String customerNumber) {
         List<AccountResponse> accounts = customerService.getCustomerAccounts(customerNumber);

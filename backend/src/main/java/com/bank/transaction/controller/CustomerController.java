@@ -32,7 +32,7 @@ public class CustomerController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'TELLER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TELLER', 'LOAN_OFFICER')")
     public ResponseEntity<ApiResponse<Page<CustomerResponse>>> getAllCustomers(
             @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
         Page<CustomerResponse> customers = customerService.getAllCustomers(pageable);
@@ -40,7 +40,7 @@ public class CustomerController {
     }
 
     @GetMapping("/{customerNumber}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TELLER', 'CUSTOMER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TELLER', 'CUSTOMER', 'LOAN_OFFICER')")
     public ResponseEntity<ApiResponse<CustomerResponse>> getCustomerByNumber(
             @PathVariable("customerNumber") String customerNumber) {
         CustomerResponse response = customerService.getCustomerByCustomerNumber(customerNumber);
@@ -57,7 +57,7 @@ public class CustomerController {
     }
 
     @GetMapping("/{customerNumber}/accounts")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TELLER', 'CUSTOMER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TELLER', 'CUSTOMER', 'LOAN_OFFICER')")
     public ResponseEntity<ApiResponse<List<AccountResponse>>> getCustomerAccounts(
             @PathVariable("customerNumber") String customerNumber) {
         List<AccountResponse> accounts = customerService.getCustomerAccounts(customerNumber);

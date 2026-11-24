@@ -33,7 +33,7 @@ public class AccountController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'TELLER', 'RISK_ANALYST')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TELLER', 'RISK_ANALYST', 'LOAN_OFFICER')")
     public ResponseEntity<ApiResponse<Page<AccountResponse>>> getAllAccounts(
             @RequestParam(name = "status", required = false) AccountStatus status,
             @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
@@ -42,7 +42,7 @@ public class AccountController {
     }
 
     @GetMapping("/{accountNumber}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TELLER', 'RISK_ANALYST', 'CUSTOMER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TELLER', 'RISK_ANALYST', 'CUSTOMER', 'LOAN_OFFICER')")
     public ResponseEntity<ApiResponse<AccountResponse>> getAccountByNumber(
             @PathVariable("accountNumber") String accountNumber) {
         AccountResponse response = accountService.getAccountByAccountNumber(accountNumber);
@@ -59,7 +59,7 @@ public class AccountController {
     }
 
     @GetMapping("/{accountNumber}/history")
-    @PreAuthorize("hasAnyRole('ADMIN', 'RISK_ANALYST', 'TELLER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RISK_ANALYST', 'TELLER', 'LOAN_OFFICER')")
     public ResponseEntity<ApiResponse<List<AccountStatusHistoryResponse>>> getAccountStatusHistory(
             @PathVariable("accountNumber") String accountNumber) {
         List<AccountStatusHistoryResponse> history = accountService.getAccountStatusHistory(accountNumber);

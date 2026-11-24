@@ -39,6 +39,27 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error(ex.getMessage(), ex.getErrorCode()));
     }
 
+    @ExceptionHandler(InsufficientBalanceException.class)
+    public ResponseEntity<ApiResponse<Void>> handleInsufficientBalance(InsufficientBalanceException ex) {
+        log.warn("Insufficient balance: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(ex.getMessage(), ex.getErrorCode()));
+    }
+
+    @ExceptionHandler(InvalidTransactionException.class)
+    public ResponseEntity<ApiResponse<Void>> handleInvalidTransaction(InvalidTransactionException ex) {
+        log.warn("Invalid transaction: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(ex.getMessage(), ex.getErrorCode()));
+    }
+
+    @ExceptionHandler(TransactionLimitExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> handleLimitExceeded(TransactionLimitExceededException ex) {
+        log.warn("Transaction limit exceeded: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(ex.getMessage(), ex.getErrorCode()));
+    }
+
     @ExceptionHandler(InvalidAccountException.class)
     public ResponseEntity<ApiResponse<Void>> handleInvalidAccount(InvalidAccountException ex) {
         log.warn("Invalid account request: {}", ex.getMessage());

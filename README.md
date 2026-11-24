@@ -51,7 +51,7 @@ banking-transaction-system/
 - [x] **Milestone 2:** Spring Boot backend and PostgreSQL connection.
 - [x] **Milestone 3:** Database schema, migrations, entities, and repositories.
 - [x] **Milestone 4:** Customer and account management APIs.
-- [ ] **Milestone 5:** Deposit, withdrawal, and transfer services.
+- [x] **Milestone 5:** Deposit, withdrawal, and transfer services.
 - [ ] **Milestone 6:** Database locking, concurrency, and idempotency.
 - [ ] **Milestone 7:** Audit logging and exception handling.
 - [ ] **Milestone 8:** JWT authentication and RBAC.

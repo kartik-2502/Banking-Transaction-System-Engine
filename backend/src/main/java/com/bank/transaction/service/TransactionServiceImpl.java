@@ -5,20 +5,22 @@ import com.bank.transaction.dto.TransactionResponse;
 import com.bank.transaction.dto.TransferRequest;
 import com.bank.transaction.dto.WithdrawalRequest;
 import com.bank.transaction.exception.*;
+import com.bank.transaction.idempotency.IdempotencyManager;
 import com.bank.transaction.model.*;
 import com.bank.transaction.repository.AccountRepository;
 import com.bank.transaction.repository.AccountTransactionLimitRepository;
 import com.bank.transaction.repository.TransactionRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.security.SecureRandom;
-import java.time.OffsetDateTime;
 
 @Service
 public class TransactionServiceImpl implements TransactionService {
@@ -30,25 +32,33 @@ public class TransactionServiceImpl implements TransactionService {
     private final TransactionRepository transactionRepository;
     private final AccountTransactionLimitRepository limitRepository;
     private final TransactionAuditService auditService;
+    private final IdempotencyManager idempotencyManager;
 
     public TransactionServiceImpl(AccountRepository accountRepository,
                                   TransactionRepository transactionRepository,
                                   AccountTransactionLimitRepository limitRepository,
-                                  TransactionAuditService auditService) {
+                                  TransactionAuditService auditService,
+                                  IdempotencyManager idempotencyManager) {
         this.accountRepository = accountRepository;
         this.transactionRepository = transactionRepository;
         this.limitRepository = limitRepository;
         this.auditService = auditService;
+        this.idempotencyManager = idempotencyManager;
     }
 
     @Override
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public TransactionResponse processDeposit(DepositRequest request) {
-        long startTime = System.currentTimeMillis();
         String txnId = resolveTransactionId(request.getTransactionId());
+        return idempotencyManager.executeIdempotent(txnId, () -> executeDepositInternal(txnId, request));
+    }
+
+    private TransactionResponse executeDepositInternal(String txnId, DepositRequest request) {
+        long startTime = System.currentTimeMillis();
         log.info("Processing DEPOSIT [txnId={}, account={}, amount={}]", txnId, request.getAccountNumber(), request.getAmount());
 
-        Account account = accountRepository.findByAccountNumber(request.getAccountNumber())
+        // Acquire exclusive pessimistic write lock (SELECT ... FOR UPDATE) on the account row
+        Account account = accountRepository.findByAccountNumberWithPessimisticLock(request.getAccountNumber())
                 .orElseThrow(() -> {
                     auditService.recordFailure(txnId, null, "ACCOUNT_NOT_FOUND", "Account not found: " + request.getAccountNumber(), null);
                     return new AccountNotFoundException("Account not found with number: " + request.getAccountNumber());
@@ -57,7 +67,7 @@ public class TransactionServiceImpl implements TransactionService {
         validateAccountActive(account, txnId);
         validateAmountPositive(request.getAmount(), txnId, account.getId());
 
-        // Perform balance credit
+        // Atomically credit balance
         BigDecimal newBalance = account.getBalance().add(request.getAmount());
         account.setBalance(newBalance);
         accountRepository.save(account);
@@ -71,7 +81,13 @@ public class TransactionServiceImpl implements TransactionService {
                 request.getAmount(),
                 request.getInitiatedBy()
         );
-        transaction = transactionRepository.save(transaction);
+        try {
+            transaction = transactionRepository.save(transaction);
+        } catch (DataIntegrityViolationException ex) {
+            log.warn("Database unique constraint triggered for duplicate transactionId: {}", txnId);
+            return idempotencyManager.findExisting(txnId)
+                    .orElseThrow(() -> new DuplicateTransactionException("Duplicate transaction request for ID: " + txnId));
+        }
 
         long duration = System.currentTimeMillis() - startTime;
         auditService.recordAudit(txnId, account.getId(), "DEPOSIT", "SUCCESS", duration);
@@ -81,13 +97,18 @@ public class TransactionServiceImpl implements TransactionService {
     }
 
     @Override
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public TransactionResponse processWithdrawal(WithdrawalRequest request) {
-        long startTime = System.currentTimeMillis();
         String txnId = resolveTransactionId(request.getTransactionId());
+        return idempotencyManager.executeIdempotent(txnId, () -> executeWithdrawalInternal(txnId, request));
+    }
+
+    private TransactionResponse executeWithdrawalInternal(String txnId, WithdrawalRequest request) {
+        long startTime = System.currentTimeMillis();
         log.info("Processing WITHDRAWAL [txnId={}, account={}, amount={}]", txnId, request.getAccountNumber(), request.getAmount());
 
-        Account account = accountRepository.findByAccountNumber(request.getAccountNumber())
+        // Acquire exclusive pessimistic write lock (SELECT ... FOR UPDATE) on the account row
+        Account account = accountRepository.findByAccountNumberWithPessimisticLock(request.getAccountNumber())
                 .orElseThrow(() -> {
                     auditService.recordFailure(txnId, null, "ACCOUNT_NOT_FOUND", "Account not found: " + request.getAccountNumber(), null);
                     return new AccountNotFoundException("Account not found with number: " + request.getAccountNumber());
@@ -97,7 +118,7 @@ public class TransactionServiceImpl implements TransactionService {
         validateAmountPositive(request.getAmount(), txnId, account.getId());
         validateTransactionLimits(account, request.getAmount(), txnId);
 
-        // Check sufficient balance
+        // Verify sufficient balance under row-level lock
         if (account.getBalance().compareTo(request.getAmount()) < 0) {
             String failureReason = String.format("Insufficient funds. Available: ₹%s, Requested: ₹%s",
                     account.getBalance().toPlainString(), request.getAmount().toPlainString());
@@ -106,7 +127,7 @@ public class TransactionServiceImpl implements TransactionService {
             throw new InsufficientBalanceException(failureReason);
         }
 
-        // Perform balance debit
+        // Atomically debit balance
         BigDecimal newBalance = account.getBalance().subtract(request.getAmount());
         account.setBalance(newBalance);
         accountRepository.save(account);
@@ -120,7 +141,13 @@ public class TransactionServiceImpl implements TransactionService {
                 request.getAmount(),
                 request.getInitiatedBy()
         );
-        transaction = transactionRepository.save(transaction);
+        try {
+            transaction = transactionRepository.save(transaction);
+        } catch (DataIntegrityViolationException ex) {
+            log.warn("Database unique constraint triggered for duplicate transactionId: {}", txnId);
+            return idempotencyManager.findExisting(txnId)
+                    .orElseThrow(() -> new DuplicateTransactionException("Duplicate transaction request for ID: " + txnId));
+        }
 
         long duration = System.currentTimeMillis() - startTime;
         auditService.recordAudit(txnId, account.getId(), "WITHDRAWAL", "SUCCESS", duration);
@@ -130,10 +157,14 @@ public class TransactionServiceImpl implements TransactionService {
     }
 
     @Override
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public TransactionResponse processTransfer(TransferRequest request) {
-        long startTime = System.currentTimeMillis();
         String txnId = resolveTransactionId(request.getTransactionId());
+        return idempotencyManager.executeIdempotent(txnId, () -> executeTransferInternal(txnId, request));
+    }
+
+    private TransactionResponse executeTransferInternal(String txnId, TransferRequest request) {
+        long startTime = System.currentTimeMillis();
         log.info("Processing TRANSFER [txnId={}, from={}, to={}, amount={}]",
                 txnId, request.getSourceAccountNumber(), request.getDestinationAccountNumber(), request.getAmount());
 
@@ -142,24 +173,41 @@ public class TransactionServiceImpl implements TransactionService {
             throw new InvalidTransactionException("Cannot transfer money to the same account");
         }
 
-        Account sourceAccount = accountRepository.findByAccountNumber(request.getSourceAccountNumber())
+        // Preliminary existence check to fetch IDs without loading entities into JPA persistence context
+        Long sourceId = accountRepository.findIdByAccountNumber(request.getSourceAccountNumber())
                 .orElseThrow(() -> {
                     auditService.recordFailure(txnId, null, "ACCOUNT_NOT_FOUND", "Source account not found: " + request.getSourceAccountNumber(), null);
                     return new AccountNotFoundException("Source account not found: " + request.getSourceAccountNumber());
                 });
 
-        Account destinationAccount = accountRepository.findByAccountNumber(request.getDestinationAccountNumber())
+        Long destId = accountRepository.findIdByAccountNumber(request.getDestinationAccountNumber())
                 .orElseThrow(() -> {
                     auditService.recordFailure(txnId, null, "ACCOUNT_NOT_FOUND", "Destination account not found: " + request.getDestinationAccountNumber(), null);
                     return new AccountNotFoundException("Destination account not found: " + request.getDestinationAccountNumber());
                 });
+
+        // ==============================================================================
+        // DETERMINISTIC LOCKING STRATEGY TO PREVENT DEADLOCKS
+        // Always acquire locks in ascending order of Account ID: lower ID first, higher ID second.
+        // Guarantees no circular wait condition can ever occur between concurrent transfers.
+        // ==============================================================================
+        Long lowerId = Math.min(sourceId, destId);
+        Long higherId = Math.max(sourceId, destId);
+
+        Account firstLocked = accountRepository.findByIdWithPessimisticLock(lowerId)
+                .orElseThrow(() -> new AccountNotFoundException("Account locked not found: ID " + lowerId));
+        Account secondLocked = accountRepository.findByIdWithPessimisticLock(higherId)
+                .orElseThrow(() -> new AccountNotFoundException("Account locked not found: ID " + higherId));
+
+        Account sourceAccount = sourceId.equals(lowerId) ? firstLocked : secondLocked;
+        Account destinationAccount = destId.equals(lowerId) ? firstLocked : secondLocked;
 
         validateAccountActive(sourceAccount, txnId);
         validateAccountActive(destinationAccount, txnId);
         validateAmountPositive(request.getAmount(), txnId, sourceAccount.getId());
         validateTransactionLimits(sourceAccount, request.getAmount(), txnId);
 
-        // Check sufficient balance
+        // Verify sufficient balance under row-level lock
         if (sourceAccount.getBalance().compareTo(request.getAmount()) < 0) {
             String failureReason = String.format("Insufficient funds for transfer. Available: ₹%s, Requested: ₹%s",
                     sourceAccount.getBalance().toPlainString(), request.getAmount().toPlainString());
@@ -168,7 +216,7 @@ public class TransactionServiceImpl implements TransactionService {
             throw new InsufficientBalanceException(failureReason);
         }
 
-        // Perform atomic debit and credit
+        // Atomically update balances
         BigDecimal sourceNewBalance = sourceAccount.getBalance().subtract(request.getAmount());
         BigDecimal destNewBalance = destinationAccount.getBalance().add(request.getAmount());
 
@@ -187,7 +235,13 @@ public class TransactionServiceImpl implements TransactionService {
                 request.getAmount(),
                 request.getInitiatedBy()
         );
-        transaction = transactionRepository.save(transaction);
+        try {
+            transaction = transactionRepository.save(transaction);
+        } catch (DataIntegrityViolationException ex) {
+            log.warn("Database unique constraint triggered for duplicate transactionId: {}", txnId);
+            return idempotencyManager.findExisting(txnId)
+                    .orElseThrow(() -> new DuplicateTransactionException("Duplicate transaction request for ID: " + txnId));
+        }
 
         long duration = System.currentTimeMillis() - startTime;
         auditService.recordAudit(txnId, sourceAccount.getId(), "TRANSFER", "SUCCESS", duration);

@@ -30,7 +30,7 @@ public class TransactionAuditServiceImpl implements TransactionAuditService {
     }
 
     @Override
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional(propagation = Propagation.REQUIRED)
     public void recordAudit(String transactionId, Long accountId, String operationType, String result, long durationMs) {
         String threadName = Thread.currentThread().getName();
         TransactionAudit audit = new TransactionAudit(

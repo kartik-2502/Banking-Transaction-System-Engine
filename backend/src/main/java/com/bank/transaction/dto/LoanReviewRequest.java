@@ -1,27 +1,52 @@
 package com.bank.transaction.dto;
 
+import com.bank.transaction.model.LoanStatus;
 import java.math.BigDecimal;
 
 public class LoanReviewRequest {
 
-    private boolean approved;
+    private LoanStatus status;
+    private Boolean approved;
+    private String assessmentNotes;
     private String rejectionReason;
     private BigDecimal interestRate;
 
     public LoanReviewRequest() {}
 
-    public LoanReviewRequest(boolean approved, String rejectionReason, BigDecimal interestRate) {
-        this.approved = approved;
+    public LoanReviewRequest(LoanStatus status, String assessmentNotes, String rejectionReason, BigDecimal interestRate) {
+        this.status = status;
+        this.assessmentNotes = assessmentNotes;
         this.rejectionReason = rejectionReason;
         this.interestRate = interestRate;
+        if (status == LoanStatus.APPROVED) {
+            this.approved = true;
+        } else if (status == LoanStatus.REJECTED) {
+            this.approved = false;
+        }
     }
 
-    public boolean isApproved() {
+    public LoanStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(LoanStatus status) {
+        this.status = status;
+    }
+
+    public Boolean getApproved() {
         return approved;
     }
 
-    public void setApproved(boolean approved) {
+    public void setApproved(Boolean approved) {
         this.approved = approved;
+    }
+
+    public String getAssessmentNotes() {
+        return assessmentNotes;
+    }
+
+    public void setAssessmentNotes(String assessmentNotes) {
+        this.assessmentNotes = assessmentNotes;
     }
 
     public String getRejectionReason() {

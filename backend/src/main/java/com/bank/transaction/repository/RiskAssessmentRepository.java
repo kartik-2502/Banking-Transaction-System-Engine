@@ -13,4 +13,5 @@ public interface RiskAssessmentRepository extends JpaRepository<RiskAssessment, 
     Optional<RiskAssessment> findByTransactionId(String transactionId);
     List<RiskAssessment> findByAccountIdOrderByCreatedAtDesc(Long accountId);
     List<RiskAssessment> findByRiskLevel(RiskLevel riskLevel);
+    long countByRiskLevel(RiskLevel riskLevel);
 }

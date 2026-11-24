@@ -30,4 +30,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
 
     @Query("SELECT COUNT(t) FROM Transaction t WHERE t.sourceAccount.id = :accountId AND t.type = :type AND t.status = :status AND t.createdAt >= :since")
     long countRecentByAccountAndTypeAndStatus(@Param("accountId") Long accountId, @Param("type") TransactionType type, @Param("status") TransactionStatus status, @Param("since") OffsetDateTime since);
+
+    @Query("SELECT COUNT(t) FROM Transaction t WHERE t.sourceAccount.id = :sourceId AND t.destinationAccount.id = :destId AND t.createdAt >= :since")
+    long countRecentTransfersBetweenAccounts(@Param("sourceId") Long sourceId, @Param("destId") Long destId, @Param("since") OffsetDateTime since);
 }

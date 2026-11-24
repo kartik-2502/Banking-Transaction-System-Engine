@@ -33,17 +33,20 @@ public class TransactionServiceImpl implements TransactionService {
     private final AccountTransactionLimitRepository limitRepository;
     private final TransactionAuditService auditService;
     private final IdempotencyManager idempotencyManager;
+    private final com.bank.transaction.fraud.FraudDetectionEngine fraudDetectionEngine;
 
     public TransactionServiceImpl(AccountRepository accountRepository,
                                   TransactionRepository transactionRepository,
                                   AccountTransactionLimitRepository limitRepository,
                                   TransactionAuditService auditService,
-                                  IdempotencyManager idempotencyManager) {
+                                  IdempotencyManager idempotencyManager,
+                                  com.bank.transaction.fraud.FraudDetectionEngine fraudDetectionEngine) {
         this.accountRepository = accountRepository;
         this.transactionRepository = transactionRepository;
         this.limitRepository = limitRepository;
         this.auditService = auditService;
         this.idempotencyManager = idempotencyManager;
+        this.fraudDetectionEngine = fraudDetectionEngine;
     }
 
     @Override
@@ -91,6 +94,9 @@ public class TransactionServiceImpl implements TransactionService {
 
         long duration = System.currentTimeMillis() - startTime;
         auditService.recordAudit(txnId, account.getId(), "DEPOSIT", "SUCCESS", duration);
+        fraudDetectionEngine.evaluateTransaction(
+                new com.bank.transaction.fraud.FraudEvaluationContext(txnId, null, account, TransactionType.DEPOSIT, request.getAmount(), request.getInitiatedBy())
+        );
         log.info("Deposit successful [txnId={}, account={}, newBalance={}]", txnId, account.getAccountNumber(), newBalance);
 
         return mapToResponse(transaction, null, newBalance);
@@ -151,6 +157,9 @@ public class TransactionServiceImpl implements TransactionService {
 
         long duration = System.currentTimeMillis() - startTime;
         auditService.recordAudit(txnId, account.getId(), "WITHDRAWAL", "SUCCESS", duration);
+        fraudDetectionEngine.evaluateTransaction(
+                new com.bank.transaction.fraud.FraudEvaluationContext(txnId, account, null, TransactionType.WITHDRAWAL, request.getAmount(), request.getInitiatedBy())
+        );
         log.info("Withdrawal successful [txnId={}, account={}, newBalance={}]", txnId, account.getAccountNumber(), newBalance);
 
         return mapToResponse(transaction, newBalance, null);
@@ -245,6 +254,9 @@ public class TransactionServiceImpl implements TransactionService {
 
         long duration = System.currentTimeMillis() - startTime;
         auditService.recordAudit(txnId, sourceAccount.getId(), "TRANSFER", "SUCCESS", duration);
+        fraudDetectionEngine.evaluateTransaction(
+                new com.bank.transaction.fraud.FraudEvaluationContext(txnId, sourceAccount, destinationAccount, TransactionType.TRANSFER, request.getAmount(), request.getInitiatedBy())
+        );
         log.info("Transfer successful [txnId={}, from={}, to={}, amount={}, sourceBalance={}, destBalance={}]",
                 txnId, sourceAccount.getAccountNumber(), destinationAccount.getAccountNumber(),
                 request.getAmount(), sourceNewBalance, destNewBalance);

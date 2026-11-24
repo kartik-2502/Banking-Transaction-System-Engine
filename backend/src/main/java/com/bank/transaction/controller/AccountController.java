@@ -65,4 +65,50 @@ public class AccountController {
         List<AccountStatusHistoryResponse> history = accountService.getAccountStatusHistory(accountNumber);
         return ResponseEntity.ok(ApiResponse.ok(history));
     }
+
+    @PostMapping("/{accountNumber}/freeze")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RISK_ANALYST')")
+    public ResponseEntity<ApiResponse<AccountResponse>> freezeAccount(
+            @PathVariable("accountNumber") String accountNumber,
+            @org.springframework.security.core.annotation.AuthenticationPrincipal org.springframework.security.core.userdetails.UserDetails userDetails,
+            @Valid @RequestBody AccountFreezeRequest request) {
+        AccountResponse response = accountService.freezeAccount(accountNumber, request.getReason(), userDetails.getUsername());
+        return ResponseEntity.ok(ApiResponse.ok("Account frozen successfully", response));
+    }
+
+    @PostMapping("/{accountNumber}/unfreeze")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RISK_ANALYST')")
+    public ResponseEntity<ApiResponse<AccountResponse>> unfreezeAccount(
+            @PathVariable("accountNumber") String accountNumber,
+            @org.springframework.security.core.annotation.AuthenticationPrincipal org.springframework.security.core.userdetails.UserDetails userDetails,
+            @Valid @RequestBody AccountFreezeRequest request) {
+        AccountResponse response = accountService.unfreezeAccount(accountNumber, request.getReason(), userDetails.getUsername());
+        return ResponseEntity.ok(ApiResponse.ok("Account unfrozen successfully", response));
+    }
+
+    @GetMapping("/{accountNumber}/limits")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RISK_ANALYST', 'TELLER', 'CUSTOMER', 'LOAN_OFFICER')")
+    public ResponseEntity<ApiResponse<AccountTransactionLimitResponse>> getAccountLimits(
+            @PathVariable("accountNumber") String accountNumber) {
+        AccountTransactionLimitResponse response = accountService.getAccountLimits(accountNumber);
+        return ResponseEntity.ok(ApiResponse.ok(response));
+    }
+
+    @PutMapping("/{accountNumber}/limits")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RISK_ANALYST')")
+    public ResponseEntity<ApiResponse<AccountTransactionLimitResponse>> updateAccountLimits(
+            @PathVariable("accountNumber") String accountNumber,
+            @org.springframework.security.core.annotation.AuthenticationPrincipal org.springframework.security.core.userdetails.UserDetails userDetails,
+            @Valid @RequestBody AccountTransactionLimitUpdateRequest request) {
+        AccountTransactionLimitResponse response = accountService.updateAccountLimits(accountNumber, request, userDetails.getUsername());
+        return ResponseEntity.ok(ApiResponse.ok("Account limits updated successfully", response));
+    }
+
+    @GetMapping("/{accountNumber}/risk")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RISK_ANALYST', 'TELLER')")
+    public ResponseEntity<ApiResponse<AccountRiskProfileResponse>> getAccountRiskProfile(
+            @PathVariable("accountNumber") String accountNumber) {
+        AccountRiskProfileResponse response = accountService.getAccountRiskProfile(accountNumber);
+        return ResponseEntity.ok(ApiResponse.ok("Account risk profile retrieved", response));
+    }
 }

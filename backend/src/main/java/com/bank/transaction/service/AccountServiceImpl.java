@@ -35,15 +35,24 @@ public class AccountServiceImpl implements AccountService {
     private final CustomerRepository customerRepository;
     private final AccountTransactionLimitRepository limitRepository;
     private final AccountStatusHistoryRepository statusHistoryRepository;
+    private final com.bank.transaction.repository.FailedTransactionRepository failedTransactionRepository;
+    private final com.bank.transaction.repository.FraudAlertRepository fraudAlertRepository;
+    private final com.bank.transaction.repository.TransactionRepository transactionRepository;
 
     public AccountServiceImpl(AccountRepository accountRepository,
                               CustomerRepository customerRepository,
                               AccountTransactionLimitRepository limitRepository,
-                              AccountStatusHistoryRepository statusHistoryRepository) {
+                              AccountStatusHistoryRepository statusHistoryRepository,
+                              com.bank.transaction.repository.FailedTransactionRepository failedTransactionRepository,
+                              com.bank.transaction.repository.FraudAlertRepository fraudAlertRepository,
+                              com.bank.transaction.repository.TransactionRepository transactionRepository) {
         this.accountRepository = accountRepository;
         this.customerRepository = customerRepository;
         this.limitRepository = limitRepository;
         this.statusHistoryRepository = statusHistoryRepository;
+        this.failedTransactionRepository = failedTransactionRepository;
+        this.fraudAlertRepository = fraudAlertRepository;
+        this.transactionRepository = transactionRepository;
     }
 
     @Override
@@ -172,6 +181,99 @@ public class AccountServiceImpl implements AccountService {
                     return res;
                 })
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public AccountResponse freezeAccount(String accountNumber, String reason, String changedBy) {
+        log.info("Freezing account {} by user {}: reason={}", accountNumber, changedBy, reason);
+        AccountStatusUpdateRequest request = new AccountStatusUpdateRequest(AccountStatus.FROZEN, reason, changedBy);
+        return updateAccountStatus(accountNumber, request);
+    }
+
+    @Override
+    public AccountResponse unfreezeAccount(String accountNumber, String reason, String changedBy) {
+        log.info("Unfreezing account {} by user {}: reason={}", accountNumber, changedBy, reason);
+        AccountStatusUpdateRequest request = new AccountStatusUpdateRequest(AccountStatus.ACTIVE, reason, changedBy);
+        return updateAccountStatus(accountNumber, request);
+    }
+
+    @Override
+    public com.bank.transaction.dto.AccountTransactionLimitResponse updateAccountLimits(
+            String accountNumber, com.bank.transaction.dto.AccountTransactionLimitUpdateRequest request, String updatedBy) {
+        log.info("Updating transaction limits for account {} by user {}: perTxn={}, daily={}",
+                accountNumber, updatedBy, request.getPerTransactionLimit(), request.getDailyLimit());
+
+        Account account = accountRepository.findByAccountNumber(accountNumber)
+                .orElseThrow(() -> new AccountNotFoundException("Account not found with number: " + accountNumber));
+
+        AccountTransactionLimit limit = limitRepository.findByAccountId(account.getId())
+                .orElseGet(() -> new AccountTransactionLimit(account, request.getDailyLimit(), request.getPerTransactionLimit()));
+
+        limit.setDailyLimit(request.getDailyLimit());
+        limit.setPerTransactionLimit(request.getPerTransactionLimit());
+        AccountTransactionLimit saved = limitRepository.save(limit);
+
+        com.bank.transaction.dto.AccountTransactionLimitResponse res = new com.bank.transaction.dto.AccountTransactionLimitResponse();
+        res.setId(saved.getId());
+        res.setAccountId(account.getId());
+        res.setAccountNumber(account.getAccountNumber());
+        res.setDailyLimit(saved.getDailyLimit());
+        res.setPerTransactionLimit(saved.getPerTransactionLimit());
+        res.setUpdatedAt(saved.getUpdatedAt());
+        return res;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public com.bank.transaction.dto.AccountTransactionLimitResponse getAccountLimits(String accountNumber) {
+        Account account = accountRepository.findByAccountNumber(accountNumber)
+                .orElseThrow(() -> new AccountNotFoundException("Account not found with number: " + accountNumber));
+
+        AccountTransactionLimit limit = limitRepository.findByAccountId(account.getId())
+                .orElseGet(() -> new AccountTransactionLimit(account, new BigDecimal("100000.00"), new BigDecimal("50000.00")));
+
+        com.bank.transaction.dto.AccountTransactionLimitResponse res = new com.bank.transaction.dto.AccountTransactionLimitResponse();
+        res.setId(limit.getId());
+        res.setAccountId(account.getId());
+        res.setAccountNumber(account.getAccountNumber());
+        res.setDailyLimit(limit.getDailyLimit());
+        res.setPerTransactionLimit(limit.getPerTransactionLimit());
+        res.setUpdatedAt(limit.getUpdatedAt());
+        return res;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public com.bank.transaction.dto.AccountRiskProfileResponse getAccountRiskProfile(String accountNumber) {
+        Account account = accountRepository.findByAccountNumber(accountNumber)
+                .orElseThrow(() -> new AccountNotFoundException("Account not found with number: " + accountNumber));
+
+        AccountTransactionLimit limit = limitRepository.findByAccountId(account.getId()).orElse(null);
+        java.time.OffsetDateTime oneDayAgo = java.time.OffsetDateTime.now().minusHours(24);
+
+        long failedCount = failedTransactionRepository.countRecentFailuresForAccount(account.getId(), oneDayAgo);
+        long alertCount = fraudAlertRepository.findByAccountIdOrderByCreatedAtDesc(account.getId()).size();
+
+        boolean flagged = (account.getStatus() == AccountStatus.FROZEN) || (failedCount >= 3) || (alertCount > 0);
+        String summary = flagged
+                ? String.format("Risk alert active: Status=%s, 24h Failures=%d, Fraud Alerts=%d", account.getStatus(), failedCount, alertCount)
+                : "Account risk profile healthy. Standard transaction limits apply.";
+
+        com.bank.transaction.dto.AccountRiskProfileResponse profile = new com.bank.transaction.dto.AccountRiskProfileResponse();
+        profile.setAccountNumber(account.getAccountNumber());
+        if (account.getCustomer() != null) {
+            profile.setCustomerId(account.getCustomer().getId());
+            profile.setCustomerName(account.getCustomer().getFirstName() + " " + account.getCustomer().getLastName());
+        }
+        profile.setCurrentBalance(account.getBalance());
+        profile.setStatus(account.getStatus());
+        profile.setDailyLimit(limit != null ? limit.getDailyLimit() : new BigDecimal("100000.00"));
+        profile.setPerTransactionLimit(limit != null ? limit.getPerTransactionLimit() : new BigDecimal("50000.00"));
+        profile.setRecentFailedTransactionsCount(failedCount);
+        profile.setRecentFraudAlertsCount(alertCount);
+        profile.setRiskFlagged(flagged);
+        profile.setRiskSummary(summary);
+        return profile;
     }
 
     private String generateUniqueAccountNumber() {

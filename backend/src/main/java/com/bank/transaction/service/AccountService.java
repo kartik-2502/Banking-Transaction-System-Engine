@@ -1,9 +1,6 @@
 package com.bank.transaction.service;
 
-import com.bank.transaction.dto.AccountCreateRequest;
-import com.bank.transaction.dto.AccountResponse;
-import com.bank.transaction.dto.AccountStatusHistoryResponse;
-import com.bank.transaction.dto.AccountStatusUpdateRequest;
+import com.bank.transaction.dto.*;
 import com.bank.transaction.model.AccountStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -17,4 +14,10 @@ public interface AccountService {
     Page<AccountResponse> getAllAccounts(AccountStatus status, Pageable pageable);
     AccountResponse updateAccountStatus(String accountNumber, AccountStatusUpdateRequest request);
     List<AccountStatusHistoryResponse> getAccountStatusHistory(String accountNumber);
+
+    AccountResponse freezeAccount(String accountNumber, String reason, String changedBy);
+    AccountResponse unfreezeAccount(String accountNumber, String reason, String changedBy);
+    AccountTransactionLimitResponse updateAccountLimits(String accountNumber, AccountTransactionLimitUpdateRequest request, String updatedBy);
+    AccountTransactionLimitResponse getAccountLimits(String accountNumber);
+    AccountRiskProfileResponse getAccountRiskProfile(String accountNumber);
 }

@@ -1,5 +1,6 @@
 package com.bank.transaction.dto;
 
+import org.slf4j.MDC;
 import java.time.OffsetDateTime;
 
 public class ApiResponse<T> {
@@ -9,24 +10,26 @@ public class ApiResponse<T> {
     private T data;
     private OffsetDateTime timestamp;
     private String errorCode;
+    private String correlationId;
 
     public ApiResponse() {
         this.timestamp = OffsetDateTime.now();
+        this.correlationId = MDC.get("correlationId");
     }
 
     public ApiResponse(boolean success, String message, T data) {
+        this();
         this.success = success;
         this.message = message;
         this.data = data;
-        this.timestamp = OffsetDateTime.now();
     }
 
     public ApiResponse(boolean success, String message, T data, String errorCode) {
+        this();
         this.success = success;
         this.message = message;
         this.data = data;
         this.errorCode = errorCode;
-        this.timestamp = OffsetDateTime.now();
     }
 
     public static <T> ApiResponse<T> ok(String message, T data) {
@@ -79,5 +82,13 @@ public class ApiResponse<T> {
 
     public void setErrorCode(String errorCode) {
         this.errorCode = errorCode;
+    }
+
+    public String getCorrelationId() {
+        return correlationId;
+    }
+
+    public void setCorrelationId(String correlationId) {
+        this.correlationId = correlationId;
     }
 }

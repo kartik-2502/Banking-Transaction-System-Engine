@@ -7,9 +7,13 @@ import com.bank.transaction.repository.TransactionAuditRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Service
 public class TransactionAuditServiceImpl implements TransactionAuditService {
@@ -68,5 +72,35 @@ public class TransactionAuditServiceImpl implements TransactionAuditService {
 
         log.warn("Persisted failed transaction record: txnId={}, category={}, reason={}",
                 transactionId, errorCategory, failureReason);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<TransactionAudit> getAuditTrail(String transactionId) {
+        return auditRepository.findByTransactionIdOrderByCreatedAtDesc(transactionId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<TransactionAudit> getAccountAuditTrail(Long accountId) {
+        return auditRepository.findByAccountIdOrderByCreatedAtDesc(accountId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<TransactionAudit> getAllAudits(Pageable pageable) {
+        return auditRepository.findAll(pageable);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<FailedTransaction> getAccountFailures(Long accountId) {
+        return failedTransactionRepository.findByAccountIdOrderByCreatedAtDesc(accountId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<FailedTransaction> getAllFailures(Pageable pageable) {
+        return failedTransactionRepository.findAll(pageable);
     }
 }

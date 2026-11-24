@@ -2,12 +2,14 @@ package com.bank.transaction.concurrency;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -53,16 +55,30 @@ public class ConcurrentTransactionExecutor implements DisposableBean {
     }
 
     /**
-     * Submits a transaction callable task for asynchronous, bounded execution.
+     * Submits a transaction callable task for asynchronous, bounded execution with SLF4J MDC propagation.
      */
     public <T> CompletableFuture<T> submit(Callable<T> task) {
         CompletableFuture<T> future = new CompletableFuture<>();
+        Map<String, String> callerContext = MDC.getCopyOfContextMap();
+
         executor.submit(() -> {
+            Map<String, String> previousContext = MDC.getCopyOfContextMap();
+            if (callerContext != null) {
+                MDC.setContextMap(callerContext);
+            } else {
+                MDC.clear();
+            }
             try {
                 T result = task.call();
                 future.complete(result);
             } catch (Throwable t) {
                 future.completeExceptionally(t);
+            } finally {
+                if (previousContext != null) {
+                    MDC.setContextMap(previousContext);
+                } else {
+                    MDC.clear();
+                }
             }
         });
         return future;

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration scan="true">
     <property name="LOG_PATTERN"
-              value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} [txnId=%X{txnId:-NA} acc=%X{accountId:-NA} op=%X{opType:-NA} dur=%X{durationMs:-NA}ms] - %msg%n"/>
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} [trace=%X{correlationId:-NA} txnId=%X{txnId:-NA} acc=%X{accountId:-NA} op=%X{opType:-NA} dur=%X{durationMs:-NA}ms] - %msg%n"/>
 
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>

@@ -1,6 +1,7 @@
 package com.bank.transaction.service;
 
 import com.bank.transaction.dto.DepositRequest;
+import com.bank.transaction.dto.NotificationEvent;
 import com.bank.transaction.dto.TransactionResponse;
 import com.bank.transaction.dto.TransferRequest;
 import com.bank.transaction.dto.WithdrawalRequest;
@@ -34,19 +35,22 @@ public class TransactionServiceImpl implements TransactionService {
     private final TransactionAuditService auditService;
     private final IdempotencyManager idempotencyManager;
     private final com.bank.transaction.fraud.FraudDetectionEngine fraudDetectionEngine;
+    private final OutboxService outboxService;
 
     public TransactionServiceImpl(AccountRepository accountRepository,
                                   TransactionRepository transactionRepository,
                                   AccountTransactionLimitRepository limitRepository,
                                   TransactionAuditService auditService,
                                   IdempotencyManager idempotencyManager,
-                                  com.bank.transaction.fraud.FraudDetectionEngine fraudDetectionEngine) {
+                                  com.bank.transaction.fraud.FraudDetectionEngine fraudDetectionEngine,
+                                  OutboxService outboxService) {
         this.accountRepository = accountRepository;
         this.transactionRepository = transactionRepository;
         this.limitRepository = limitRepository;
         this.auditService = auditService;
         this.idempotencyManager = idempotencyManager;
         this.fraudDetectionEngine = fraudDetectionEngine;
+        this.outboxService = outboxService;
     }
 
     @Override
@@ -94,9 +98,43 @@ public class TransactionServiceImpl implements TransactionService {
 
         long duration = System.currentTimeMillis() - startTime;
         auditService.recordAudit(txnId, account.getId(), "DEPOSIT", "SUCCESS", duration);
-        fraudDetectionEngine.evaluateTransaction(
+        RiskAssessment assessment = fraudDetectionEngine.evaluateTransaction(
                 new com.bank.transaction.fraud.FraudEvaluationContext(txnId, null, account, TransactionType.DEPOSIT, request.getAmount(), request.getInitiatedBy())
         );
+
+        Long customerUserId = (account.getCustomer() != null && account.getCustomer().getUser() != null)
+                ? account.getCustomer().getUser().getId() : null;
+        String customerUsername = (account.getCustomer() != null && account.getCustomer().getUser() != null)
+                ? account.getCustomer().getUser().getUsername() : null;
+
+        outboxService.publishNotificationEvent(new NotificationEvent(
+                "TRANSACTION_DEPOSIT",
+                txnId,
+                account.getAccountNumber(),
+                customerUserId,
+                customerUsername,
+                request.getAmount(),
+                "Deposit Successful",
+                String.format("₹%s deposited to account %s. New balance: ₹%s",
+                        request.getAmount().toPlainString(), account.getAccountNumber(), newBalance.toPlainString()),
+                "SUCCESS"
+        ));
+
+        if (assessment != null && (assessment.getRiskLevel() == RiskLevel.HIGH || assessment.getRiskLevel() == RiskLevel.CRITICAL)) {
+            outboxService.publishNotificationEvent(new NotificationEvent(
+                    "FRAUD_ALERT_RAISED",
+                    txnId,
+                    account.getAccountNumber(),
+                    customerUserId,
+                    customerUsername,
+                    request.getAmount(),
+                    "High Risk Deposit Flagged",
+                    String.format("Deposit %s on account %s flagged as %s risk (Score: %d)",
+                            txnId, account.getAccountNumber(), assessment.getRiskLevel(), assessment.getRiskScore()),
+                    "CRITICAL"
+            ));
+        }
+
         log.info("Deposit successful [txnId={}, account={}, newBalance={}]", txnId, account.getAccountNumber(), newBalance);
 
         return mapToResponse(transaction, null, newBalance);
@@ -157,9 +195,43 @@ public class TransactionServiceImpl implements TransactionService {
 
         long duration = System.currentTimeMillis() - startTime;
         auditService.recordAudit(txnId, account.getId(), "WITHDRAWAL", "SUCCESS", duration);
-        fraudDetectionEngine.evaluateTransaction(
+        RiskAssessment assessment = fraudDetectionEngine.evaluateTransaction(
                 new com.bank.transaction.fraud.FraudEvaluationContext(txnId, account, null, TransactionType.WITHDRAWAL, request.getAmount(), request.getInitiatedBy())
         );
+
+        Long customerUserId = (account.getCustomer() != null && account.getCustomer().getUser() != null)
+                ? account.getCustomer().getUser().getId() : null;
+        String customerUsername = (account.getCustomer() != null && account.getCustomer().getUser() != null)
+                ? account.getCustomer().getUser().getUsername() : null;
+
+        outboxService.publishNotificationEvent(new NotificationEvent(
+                "TRANSACTION_WITHDRAWAL",
+                txnId,
+                account.getAccountNumber(),
+                customerUserId,
+                customerUsername,
+                request.getAmount(),
+                "Withdrawal Debited",
+                String.format("₹%s withdrawn from account %s. New balance: ₹%s",
+                        request.getAmount().toPlainString(), account.getAccountNumber(), newBalance.toPlainString()),
+                "INFO"
+        ));
+
+        if (assessment != null && (assessment.getRiskLevel() == RiskLevel.HIGH || assessment.getRiskLevel() == RiskLevel.CRITICAL)) {
+            outboxService.publishNotificationEvent(new NotificationEvent(
+                    "FRAUD_ALERT_RAISED",
+                    txnId,
+                    account.getAccountNumber(),
+                    customerUserId,
+                    customerUsername,
+                    request.getAmount(),
+                    "High Risk Withdrawal Flagged",
+                    String.format("Withdrawal %s on account %s flagged as %s risk (Score: %d)",
+                            txnId, account.getAccountNumber(), assessment.getRiskLevel(), assessment.getRiskScore()),
+                    "CRITICAL"
+            ));
+        }
+
         log.info("Withdrawal successful [txnId={}, account={}, newBalance={}]", txnId, account.getAccountNumber(), newBalance);
 
         return mapToResponse(transaction, newBalance, null);
@@ -254,9 +326,63 @@ public class TransactionServiceImpl implements TransactionService {
 
         long duration = System.currentTimeMillis() - startTime;
         auditService.recordAudit(txnId, sourceAccount.getId(), "TRANSFER", "SUCCESS", duration);
-        fraudDetectionEngine.evaluateTransaction(
+        RiskAssessment assessment = fraudDetectionEngine.evaluateTransaction(
                 new com.bank.transaction.fraud.FraudEvaluationContext(txnId, sourceAccount, destinationAccount, TransactionType.TRANSFER, request.getAmount(), request.getInitiatedBy())
         );
+
+        Long srcUserId = (sourceAccount.getCustomer() != null && sourceAccount.getCustomer().getUser() != null)
+                ? sourceAccount.getCustomer().getUser().getId() : null;
+        String srcUsername = (sourceAccount.getCustomer() != null && sourceAccount.getCustomer().getUser() != null)
+                ? sourceAccount.getCustomer().getUser().getUsername() : null;
+
+        Long destUserId = (destinationAccount.getCustomer() != null && destinationAccount.getCustomer().getUser() != null)
+                ? destinationAccount.getCustomer().getUser().getId() : null;
+        String destUsername = (destinationAccount.getCustomer() != null && destinationAccount.getCustomer().getUser() != null)
+                ? destinationAccount.getCustomer().getUser().getUsername() : null;
+
+        // Debit event for sender account
+        outboxService.publishNotificationEvent(new NotificationEvent(
+                "TRANSACTION_TRANSFER_DEBIT",
+                txnId,
+                sourceAccount.getAccountNumber(),
+                srcUserId,
+                srcUsername,
+                request.getAmount(),
+                "Fund Transfer Sent",
+                String.format("Transferred ₹%s to account %s. Remaining balance: ₹%s",
+                        request.getAmount().toPlainString(), destinationAccount.getAccountNumber(), sourceNewBalance.toPlainString()),
+                "INFO"
+        ));
+
+        // Credit event for recipient account
+        outboxService.publishNotificationEvent(new NotificationEvent(
+                "TRANSACTION_TRANSFER_CREDIT",
+                txnId,
+                destinationAccount.getAccountNumber(),
+                destUserId,
+                destUsername,
+                request.getAmount(),
+                "Fund Transfer Received",
+                String.format("Received ₹%s from account %s. New balance: ₹%s",
+                        request.getAmount().toPlainString(), sourceAccount.getAccountNumber(), destNewBalance.toPlainString()),
+                "SUCCESS"
+        ));
+
+        if (assessment != null && (assessment.getRiskLevel() == RiskLevel.HIGH || assessment.getRiskLevel() == RiskLevel.CRITICAL)) {
+            outboxService.publishNotificationEvent(new NotificationEvent(
+                    "FRAUD_ALERT_RAISED",
+                    txnId,
+                    sourceAccount.getAccountNumber(),
+                    srcUserId,
+                    srcUsername,
+                    request.getAmount(),
+                    "High Risk Transfer Flagged",
+                    String.format("Transfer %s from account %s flagged as %s risk (Score: %d)",
+                            txnId, sourceAccount.getAccountNumber(), assessment.getRiskLevel(), assessment.getRiskScore()),
+                    "CRITICAL"
+            ));
+        }
+
         log.info("Transfer successful [txnId={}, from={}, to={}, amount={}, sourceBalance={}, destBalance={}]",
                 txnId, sourceAccount.getAccountNumber(), destinationAccount.getAccountNumber(),
                 request.getAmount(), sourceNewBalance, destNewBalance);

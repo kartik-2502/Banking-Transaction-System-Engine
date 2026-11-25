@@ -34,6 +34,7 @@ public class LoanServiceImpl implements LoanService {
     private final UserRepository userRepository;
     private final TransactionService transactionService;
     private final LoanFinancialCalculator financialCalculator;
+    private final OutboxService outboxService;
 
     public LoanServiceImpl(LoanRepository loanRepository,
                            LoanRepaymentScheduleRepository scheduleRepository,
@@ -42,7 +43,8 @@ public class LoanServiceImpl implements LoanService {
                            AccountRepository accountRepository,
                            UserRepository userRepository,
                            TransactionService transactionService,
-                           LoanFinancialCalculator financialCalculator) {
+                           LoanFinancialCalculator financialCalculator,
+                           OutboxService outboxService) {
         this.loanRepository = loanRepository;
         this.scheduleRepository = scheduleRepository;
         this.historyRepository = historyRepository;
@@ -51,6 +53,7 @@ public class LoanServiceImpl implements LoanService {
         this.userRepository = userRepository;
         this.transactionService = transactionService;
         this.financialCalculator = financialCalculator;
+        this.outboxService = outboxService;
     }
 
     @Override
@@ -117,6 +120,19 @@ public class LoanServiceImpl implements LoanService {
                 "Initial loan application submitted by customer" + (isHighValue ? " [Flagged: High-Value > ₹500,000 requiring Admin Approval]" : "")
         );
         historyRepository.save(initialHistory);
+
+        outboxService.publishNotificationEvent(new NotificationEvent(
+                "LOAN_APPLICATION_SUBMITTED",
+                saved.getLoanId(),
+                account.getAccountNumber(),
+                user.getId(),
+                username,
+                saved.getAmount(),
+                "Loan Application Received",
+                String.format("Loan application %s for ₹%s has been submitted and is currently PENDING review.",
+                        saved.getLoanId(), saved.getAmount().toPlainString()),
+                "INFO"
+        ));
 
         log.info("Loan application created [loanId={}, amount={}, emi={}, dti={}, highValue={}]",
                 saved.getLoanId(), saved.getAmount(), emi, dti, isHighValue);
@@ -200,6 +216,24 @@ public class LoanServiceImpl implements LoanService {
         LoanStatusHistory history = new LoanStatusHistory(updated, previousStatus, targetStatus, reviewedBy, remarks);
         historyRepository.save(history);
 
+        Long loanUserId = (updated.getCustomer() != null && updated.getCustomer().getUser() != null)
+                ? updated.getCustomer().getUser().getId() : null;
+        String loanUsername = (updated.getCustomer() != null && updated.getCustomer().getUser() != null)
+                ? updated.getCustomer().getUser().getUsername() : null;
+
+        outboxService.publishNotificationEvent(new NotificationEvent(
+                "LOAN_STATUS_UPDATED",
+                updated.getLoanId(),
+                updated.getAccount().getAccountNumber(),
+                loanUserId,
+                loanUsername,
+                updated.getAmount(),
+                "Loan Status: " + targetStatus,
+                String.format("Your loan application %s status is now %s. Remarks: %s",
+                        updated.getLoanId(), targetStatus, remarks),
+                targetStatus == LoanStatus.APPROVED ? "SUCCESS" : (targetStatus == LoanStatus.REJECTED ? "WARNING" : "INFO")
+        ));
+
         log.info("Loan status updated [loanId={}, previousStatus={}, newStatus={}, actor={}]",
                 loanId, previousStatus, targetStatus, reviewedBy);
         return mapToResponse(updated);
@@ -245,6 +279,24 @@ public class LoanServiceImpl implements LoanService {
                 "Funds ₹" + loan.getAmount() + " credited to account " + loan.getAccount().getAccountNumber() + ". Generated " + schedules.size() + " installment repayment schedules."
         );
         historyRepository.save(history);
+
+        Long disburseUserId = (disbursed.getCustomer() != null && disbursed.getCustomer().getUser() != null)
+                ? disbursed.getCustomer().getUser().getId() : null;
+        String disburseUsername = (disbursed.getCustomer() != null && disbursed.getCustomer().getUser() != null)
+                ? disbursed.getCustomer().getUser().getUsername() : null;
+
+        outboxService.publishNotificationEvent(new NotificationEvent(
+                "LOAN_DISBURSED",
+                disbursed.getLoanId(),
+                disbursed.getAccount().getAccountNumber(),
+                disburseUserId,
+                disburseUsername,
+                disbursed.getAmount(),
+                "Loan Funds Disbursed",
+                String.format("₹%s disbursed to account %s for loan %s.",
+                        disbursed.getAmount().toPlainString(), disbursed.getAccount().getAccountNumber(), disbursed.getLoanId()),
+                "SUCCESS"
+        ));
 
         log.info("Loan disbursed successfully [loanId={}, amount={}, account={}, schedules={}]",
                 loanId, loan.getAmount(), loan.getAccount().getAccountNumber(), schedules.size());

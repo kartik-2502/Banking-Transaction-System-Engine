@@ -41,13 +41,17 @@ class FraudDetectionIntegrationTest {
             acc.setBalance(new BigDecimal("25000.00"));
             accountRepository.saveAndFlush(acc);
         });
+        accountRepository.findByAccountNumber("ACC3005").ifPresent(acc -> {
+            acc.setBalance(new BigDecimal("5000.00"));
+            accountRepository.saveAndFlush(acc);
+        });
     }
 
     @Test
     @DisplayName("Fraud Rule: Normal transaction results in LOW risk assessment with no alert")
     void testNormalTransactionLowRisk() {
         String txnId = "TXN_LOW_RISK_" + System.currentTimeMillis();
-        DepositRequest request = new DepositRequest(txnId, "ACC2004", new BigDecimal("500.00"), "ATM");
+        DepositRequest request = new DepositRequest(txnId, "ACC3005", new BigDecimal("500.00"), "ATM");
 
         TransactionResponse response = transactionService.processDeposit(request);
         assertNotNull(response);
@@ -73,7 +77,7 @@ class FraudDetectionIntegrationTest {
         assertTrue(assessment.getTriggeredRule().contains("UNUSUALLY_LARGE_AMOUNT"));
 
         // Verify alert was raised
-        Page<FraudAlertResponse> alerts = fraudService.getAlerts(FraudAlertStatus.NEW, PageRequest.of(0, 10));
+        Page<FraudAlertResponse> alerts = fraudService.getAlerts(FraudAlertStatus.NEW, PageRequest.of(0, 100));
         assertFalse(alerts.isEmpty(), "Fraud alert should be raised for large amount");
 
         FraudAlertResponse targetAlert = alerts.getContent().stream()

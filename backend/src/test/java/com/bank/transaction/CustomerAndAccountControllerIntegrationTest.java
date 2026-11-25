@@ -17,6 +17,8 @@ import org.springframework.test.web.servlet.MvcResult;
 
 import java.math.BigDecimal;
 
+import org.springframework.security.test.context.support.WithMockUser;
+
 import static org.hamcrest.Matchers.*;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -24,6 +26,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@WithMockUser(username = "admin", roles = {"ADMIN"})
 class CustomerAndAccountControllerIntegrationTest {
 
     @Autowired

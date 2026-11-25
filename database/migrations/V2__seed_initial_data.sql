@@ -12,12 +12,13 @@ INSERT INTO roles (name, description) VALUES
 ON CONFLICT (name) DO NOTHING;
 
 -- 2. Insert Default Users (Password: "password" -> BCrypt hash)
+-- Standard BCrypt hash for "password": $2a$10$dXJ3SW6G7P50lGmMkkmwe.20cQQubK3.HZWzG3YB1tlRy.fqvM/BG
 INSERT INTO users (username, email, password_hash, enabled) VALUES
-('admin', 'admin@apexbank.com', '$2a$10$7Ez8GgHqSgYkGz8yT0D93.l7pI8J2JbE4N8QcR0X9hQ7e6P2vJ6Vv', TRUE),
-('teller1', 'teller1@apexbank.com', '$2a$10$7Ez8GgHqSgYkGz8yT0D93.l7pI8J2JbE4N8QcR0X9hQ7e6P2vJ6Vv', TRUE),
-('analyst1', 'analyst1@apexbank.com', '$2a$10$7Ez8GgHqSgYkGz8yT0D93.l7pI8J2JbE4N8QcR0X9hQ7e6P2vJ6Vv', TRUE),
-('john_doe', 'john.doe@apexbank.com', '$2a$10$7Ez8GgHqSgYkGz8yT0D93.l7pI8J2JbE4N8QcR0X9hQ7e6P2vJ6Vv', TRUE),
-('jane_smith', 'jane.smith@apexbank.com', '$2a$10$7Ez8GgHqSgYkGz8yT0D93.l7pI8J2JbE4N8QcR0X9hQ7e6P2vJ6Vv', TRUE)
+('admin', 'admin@apexbank.com', '$2a$10$dXJ3SW6G7P50lGmMkkmwe.20cQQubK3.HZWzG3YB1tlRy.fqvM/BG', TRUE),
+('teller1', 'teller1@apexbank.com', '$2a$10$dXJ3SW6G7P50lGmMkkmwe.20cQQubK3.HZWzG3YB1tlRy.fqvM/BG', TRUE),
+('analyst1', 'analyst1@apexbank.com', '$2a$10$dXJ3SW6G7P50lGmMkkmwe.20cQQubK3.HZWzG3YB1tlRy.fqvM/BG', TRUE),
+('john_doe', 'john.doe@apexbank.com', '$2a$10$dXJ3SW6G7P50lGmMkkmwe.20cQQubK3.HZWzG3YB1tlRy.fqvM/BG', TRUE),
+('jane_smith', 'jane.smith@apexbank.com', '$2a$10$dXJ3SW6G7P50lGmMkkmwe.20cQQubK3.HZWzG3YB1tlRy.fqvM/BG', TRUE)
 ON CONFLICT (username) DO NOTHING;
 
 -- Map User Roles

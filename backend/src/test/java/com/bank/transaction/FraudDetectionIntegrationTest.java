@@ -77,7 +77,7 @@ class FraudDetectionIntegrationTest {
         assertTrue(assessment.getTriggeredRule().contains("UNUSUALLY_LARGE_AMOUNT"));
 
         // Verify alert was raised
-        Page<FraudAlertResponse> alerts = fraudService.getAlerts(FraudAlertStatus.NEW, PageRequest.of(0, 100));
+        Page<FraudAlertResponse> alerts = fraudService.getAlerts(FraudAlertStatus.NEW, PageRequest.of(0, 500));
         assertFalse(alerts.isEmpty(), "Fraud alert should be raised for large amount");
 
         FraudAlertResponse targetAlert = alerts.getContent().stream()

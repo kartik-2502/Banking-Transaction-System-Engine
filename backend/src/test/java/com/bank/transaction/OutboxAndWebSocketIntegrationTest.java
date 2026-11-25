@@ -24,6 +24,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -54,6 +55,12 @@ class OutboxAndWebSocketIntegrationTest {
     @Autowired
     private com.bank.transaction.repository.AccountRepository accountRepository;
 
+    @org.junit.jupiter.api.BeforeEach
+    void setupCleanState() {
+        notificationRepository.deleteAll();
+        outboxRepository.deleteAll();
+    }
+
     @org.junit.jupiter.api.AfterEach
     void resetAccountState() {
         accountRepository.findByAccountNumber("ACC1001").ifPresent(acc -> {
@@ -65,8 +72,6 @@ class OutboxAndWebSocketIntegrationTest {
     @Test
     @DisplayName("Transactional Outbox: Deposit emits outbox event in the same transaction")
     void testDepositCreatesOutboxRecord() {
-        long initialPendingCount = outboxRepository.findPendingEvents(OutboxStatus.PENDING, PageRequest.of(0, 100)).size();
-
         String txnId = "TXN_OUTBOX_DEP_" + System.currentTimeMillis();
         DepositRequest request = new DepositRequest(txnId, "ACC1001", new BigDecimal("150.00"), "WEB");
         TransactionResponse response = transactionService.processDeposit(request);
@@ -74,11 +79,11 @@ class OutboxAndWebSocketIntegrationTest {
         assertNotNull(response);
         assertEquals(TransactionStatus.SUCCESS, response.getStatus());
 
-        List<NotificationOutbox> pending = outboxRepository.findPendingEvents(OutboxStatus.PENDING, PageRequest.of(0, 100));
-        assertTrue(pending.size() > initialPendingCount, "New outbox record must be enqueued");
-
-        boolean found = pending.stream().anyMatch(o -> o.getPayloadJson().contains(txnId));
-        assertTrue(found, "Outbox record must contain the transaction ID: " + txnId);
+        Optional<NotificationOutbox> found = outboxRepository.findAll().stream()
+                .filter(o -> o.getPayloadJson() != null && o.getPayloadJson().contains(txnId))
+                .findFirst();
+        assertTrue(found.isPresent(), "Outbox record must be enqueued for transaction ID: " + txnId);
+        assertEquals(OutboxStatus.PENDING, found.get().getStatus());
     }
 
     @Test
@@ -88,14 +93,12 @@ class OutboxAndWebSocketIntegrationTest {
         DepositRequest request = new DepositRequest(txnId, "ACC1001", new BigDecimal("250.00"), "MOBILE");
         transactionService.processDeposit(request);
 
-        // Run processor synchronously
         int processed = outboxProcessor.processPendingEvents();
         assertTrue(processed > 0, "Processor should have processed at least 1 pending event");
 
-        // Verify outbox record is now PROCESSED
         List<NotificationOutbox> all = outboxRepository.findAll();
         NotificationOutbox matching = all.stream()
-                .filter(o -> o.getPayloadJson().contains(txnId))
+                .filter(o -> o.getPayloadJson() != null && o.getPayloadJson().contains(txnId))
                 .findFirst()
                 .orElse(null);
 

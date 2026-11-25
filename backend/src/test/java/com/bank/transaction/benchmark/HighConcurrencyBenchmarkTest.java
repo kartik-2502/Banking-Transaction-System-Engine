@@ -52,6 +52,9 @@ public class HighConcurrencyBenchmarkTest {
     @Autowired
     private CustomerRepository customerRepository;
 
+    @Autowired
+    private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+
     private final List<String> benchmarkAccountNumbers = new ArrayList<>();
     private static final int NUM_BENCHMARK_ACCOUNTS = 20;
 
@@ -385,6 +388,18 @@ public class HighConcurrencyBenchmarkTest {
         assertFalse(responses.isEmpty());
         for (TransactionResponse r : responses) {
             assertEquals(commonTxnId, r.getTransactionId());
+        }
+    }
+
+    @AfterAll
+    void cleanupBenchmarkData() {
+        try {
+            jdbcTemplate.execute("DELETE FROM notification_outbox WHERE event_type LIKE 'TRANSACTION_%'");
+            jdbcTemplate.execute("DELETE FROM fraud_alerts WHERE transaction_id LIKE 'BM_%' OR transaction_id LIKE 'DEADLOCK_%' OR transaction_id LIKE 'INVARIANT_%' OR transaction_id LIKE 'STORM_%'");
+            jdbcTemplate.execute("DELETE FROM risk_assessments WHERE transaction_id LIKE 'BM_%' OR transaction_id LIKE 'DEADLOCK_%' OR transaction_id LIKE 'INVARIANT_%' OR transaction_id LIKE 'STORM_%'");
+            jdbcTemplate.execute("DELETE FROM transactions WHERE transaction_id LIKE 'BM_%' OR transaction_id LIKE 'DEADLOCK_%' OR transaction_id LIKE 'INVARIANT_%' OR transaction_id LIKE 'STORM_%'");
+        } catch (Exception ex) {
+            log.warn("Benchmark cleanup exception: {}", ex.getMessage());
         }
     }
 }

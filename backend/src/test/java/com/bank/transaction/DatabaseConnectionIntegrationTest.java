@@ -37,7 +37,7 @@ class DatabaseConnectionIntegrationTest {
 
         HikariDataSource hikari = (HikariDataSource) dataSource;
         assertEquals("BankingHikariCP", hikari.getPoolName());
-        assertEquals(20, hikari.getMaximumPoolSize());
+        assertEquals(30, hikari.getMaximumPoolSize());
     }
 
     @Test

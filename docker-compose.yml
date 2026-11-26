@@ -6,7 +6,7 @@ services:
   # ============================================================================
   postgres:
     image: postgres:16-alpine
-    container_name: apex-postgres
+    container_name: bank-postgres
     restart: unless-stopped
     environment:
       POSTGRES_DB: banking_db
@@ -32,7 +32,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: apex-backend
+    container_name: bank-backend
     restart: unless-stopped
     depends_on:
       postgres:
@@ -65,7 +65,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: apex-frontend
+    container_name: bank-frontend
     restart: unless-stopped
     depends_on:
       backend:

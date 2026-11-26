@@ -20,13 +20,13 @@ class AuthIntegrationTest {
     @Test
     @DisplayName("Verify user login and JWT token generation for admin and customer")
     void testUserAuthentication() {
-        AuthResponse adminAuth = authService.login(new LoginRequest("admin", "password"));
+        AuthResponse adminAuth = authService.login(new LoginRequest("system_administrator", "password"));
         assertNotNull(adminAuth);
         assertNotNull(adminAuth.getAccessToken());
         assertNotNull(adminAuth.getRefreshToken());
         assertTrue(adminAuth.getRoles().contains("ROLE_ADMIN"));
 
-        AuthResponse customerAuth = authService.login(new LoginRequest("john_doe", "password"));
+        AuthResponse customerAuth = authService.login(new LoginRequest("aarav_sharma", "password"));
         assertNotNull(customerAuth);
         assertTrue(customerAuth.getRoles().contains("ROLE_CUSTOMER"));
     }
@@ -49,12 +49,12 @@ class AuthIntegrationTest {
     @Test
     @DisplayName("Verify refresh token rotation and new access token issuance")
     void testTokenRefresh() {
-        AuthResponse loginResponse = authService.login(new LoginRequest("teller1", "password"));
+        AuthResponse loginResponse = authService.login(new LoginRequest("rohan_kulkarni", "password"));
         String refreshToken = loginResponse.getRefreshToken();
 
         AuthResponse refreshed = authService.refreshToken(refreshToken);
         assertNotNull(refreshed);
         assertNotNull(refreshed.getAccessToken());
-        assertEquals("teller1", refreshed.getUsername());
+        assertEquals("rohan_kulkarni", refreshed.getUsername());
     }
 }

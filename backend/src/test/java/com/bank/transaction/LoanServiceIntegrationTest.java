@@ -50,7 +50,7 @@ class LoanServiceIntegrationTest {
                 new BigDecimal("5000.00"),
                 760
         );
-        LoanResponse appliedLoan = loanService.applyForLoan("john_doe", appReq);
+        LoanResponse appliedLoan = loanService.applyForLoan("aarav_sharma", appReq);
 
         assertNotNull(appliedLoan);
         assertNotNull(appliedLoan.getLoanId());
@@ -67,9 +67,9 @@ class LoanServiceIntegrationTest {
                 null,
                 new BigDecimal("8.00")
         );
-        LoanResponse underReviewLoan = loanService.reviewLoan(appliedLoan.getLoanId(), "loan_officer1", false, reviewReq1);
+        LoanResponse underReviewLoan = loanService.reviewLoan(appliedLoan.getLoanId(), "ananya_verma", false, reviewReq1);
         assertEquals(LoanStatus.UNDER_REVIEW, underReviewLoan.getStatus());
-        assertEquals("loan_officer1", underReviewLoan.getReviewedBy());
+        assertEquals("ananya_verma", underReviewLoan.getReviewedBy());
 
         // 3. Loan Officer approves
         LoanReviewRequest approveReq = new LoanReviewRequest(
@@ -78,11 +78,11 @@ class LoanServiceIntegrationTest {
                 null,
                 new BigDecimal("8.00")
         );
-        LoanResponse approvedLoan = loanService.reviewLoan(appliedLoan.getLoanId(), "loan_officer1", false, approveReq);
+        LoanResponse approvedLoan = loanService.reviewLoan(appliedLoan.getLoanId(), "ananya_verma", false, approveReq);
         assertEquals(LoanStatus.APPROVED, approvedLoan.getStatus());
 
         // 4. Loan Officer disburses funds to customer's account
-        LoanResponse disbursedLoan = loanService.disburseLoan(appliedLoan.getLoanId(), "loan_officer1");
+        LoanResponse disbursedLoan = loanService.disburseLoan(appliedLoan.getLoanId(), "ananya_verma");
         assertEquals(LoanStatus.DISBURSED, disbursedLoan.getStatus());
         assertNotNull(disbursedLoan.getDisbursedAt());
 
@@ -99,7 +99,7 @@ class LoanServiceIntegrationTest {
         // 5. Repay 1 installment
         BigDecimal firstEmi = schedules.get(0).getTotalInstallment();
         LoanRepaymentRequest repayReq = new LoanRepaymentRequest(firstEmi, "ACC1001");
-        LoanResponse afterRepayLoan = loanService.repayInstallment(appliedLoan.getLoanId(), "john_doe", repayReq);
+        LoanResponse afterRepayLoan = loanService.repayInstallment(appliedLoan.getLoanId(), "aarav_sharma", repayReq);
 
         assertTrue(afterRepayLoan.getOutstandingBalance().compareTo(disbursedLoan.getOutstandingBalance()) < 0);
 
@@ -123,9 +123,9 @@ class LoanServiceIntegrationTest {
                 BigDecimal.ZERO,
                 700
         );
-        LoanResponse appliedLoan = loanService.applyForLoan("john_doe", appReq);
+        LoanResponse appliedLoan = loanService.applyForLoan("aarav_sharma", appReq);
 
-        // john_doe attempts to approve their own loan
+        // aarav_sharma attempts to approve their own loan
         LoanReviewRequest approveReq = new LoanReviewRequest(
                 LoanStatus.APPROVED,
                 "Self-approval attempt",
@@ -135,7 +135,7 @@ class LoanServiceIntegrationTest {
 
         InvalidTransactionException ex = assertThrows(
                 InvalidTransactionException.class,
-                () -> loanService.reviewLoan(appliedLoan.getLoanId(), "john_doe", false, approveReq)
+                () -> loanService.reviewLoan(appliedLoan.getLoanId(), "aarav_sharma", false, approveReq)
         );
         assertTrue(ex.getMessage().contains("Conflict of Interest"));
     }
@@ -153,7 +153,7 @@ class LoanServiceIntegrationTest {
                 new BigDecimal("20000.00"),
                 800
         );
-        LoanResponse applied = loanService.applyForLoan("john_doe", appReq);
+        LoanResponse applied = loanService.applyForLoan("aarav_sharma", appReq);
         assertTrue(applied.isRequiresAdminApproval(), "Loan > ₹500,000 must flag requiresAdminApproval = true");
 
         // Loan Officer attempts to give final approval -> Must be rejected
@@ -166,14 +166,14 @@ class LoanServiceIntegrationTest {
 
         InvalidTransactionException ex = assertThrows(
                 InvalidTransactionException.class,
-                () -> loanService.reviewLoan(applied.getLoanId(), "loan_officer1", false, approveReq)
+                () -> loanService.reviewLoan(applied.getLoanId(), "ananya_verma", false, approveReq)
         );
         assertTrue(ex.getMessage().contains("Approval Authority Violation") || ex.getMessage().contains("ADMIN"));
 
         // Admin approves -> Must succeed
-        LoanResponse adminApproved = loanService.reviewLoan(applied.getLoanId(), "admin", true, approveReq);
+        LoanResponse adminApproved = loanService.reviewLoan(applied.getLoanId(), "system_administrator", true, approveReq);
         assertEquals(LoanStatus.APPROVED, adminApproved.getStatus());
-        assertEquals("admin", adminApproved.getFinalApprovedBy());
+        assertEquals("system_administrator", adminApproved.getFinalApprovedBy());
     }
 
     @Test

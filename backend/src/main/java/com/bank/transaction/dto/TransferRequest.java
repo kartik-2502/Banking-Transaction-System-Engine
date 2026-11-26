@@ -22,6 +22,9 @@ public class TransferRequest {
 
     private String initiatedBy = "SYSTEM";
 
+    private String challengeId;
+    private String deviceFingerprint;
+
     public TransferRequest() {}
 
     public TransferRequest(String sourceAccountNumber, String destinationAccountNumber, BigDecimal amount) {
@@ -77,4 +80,9 @@ public class TransferRequest {
     public void setInitiatedBy(String initiatedBy) {
         this.initiatedBy = initiatedBy;
     }
+
+    public String getChallengeId() { return challengeId; }
+    public void setChallengeId(String challengeId) { this.challengeId = challengeId; }
+    public String getDeviceFingerprint() { return deviceFingerprint; }
+    public void setDeviceFingerprint(String deviceFingerprint) { this.deviceFingerprint = deviceFingerprint; }
 }

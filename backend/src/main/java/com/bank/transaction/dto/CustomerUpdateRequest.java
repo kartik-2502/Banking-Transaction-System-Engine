@@ -20,6 +20,8 @@ public class CustomerUpdateRequest {
     @Size(max = 255, message = "Address must not exceed 255 characters")
     private String address;
 
+    private String challengeId;
+
     public CustomerUpdateRequest() {}
 
     public CustomerUpdateRequest(String firstName, String lastName, String phone, String address) {
@@ -60,4 +62,7 @@ public class CustomerUpdateRequest {
     public void setAddress(String address) {
         this.address = address;
     }
+
+    public String getChallengeId() { return challengeId; }
+    public void setChallengeId(String challengeId) { this.challengeId = challengeId; }
 }

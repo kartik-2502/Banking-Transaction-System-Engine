@@ -72,8 +72,8 @@ class SchemaAndRepositoryIntegrationTest {
         assertTrue(roleRepository.findByName(RoleName.LOAN_OFFICER).isPresent());
 
         // Users check
-        assertTrue(userRepository.findByUsername("admin").isPresent());
-        assertTrue(userRepository.findByUsername("john_doe").isPresent());
+        assertTrue(userRepository.findByUsername("system_administrator").isPresent());
+        assertTrue(userRepository.findByUsername("aarav_sharma").isPresent());
 
         // Mandatory Concurrency Account check
         Optional<Account> acc1001Opt = accountRepository.findByAccountNumber("ACC1001");

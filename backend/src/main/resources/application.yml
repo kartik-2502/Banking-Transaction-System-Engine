@@ -39,6 +39,30 @@ banking:
     jwt:
       secret: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
       expiration-ms: ${JWT_EXPIRATION_MS:86400000}
+      mfa-pending-expiration-ms: ${JWT_MFA_PENDING_EXPIRATION_MS:300000}
+    amfa:
+      enabled: ${AMFA_ENABLED:true}
+      secret-encryption-key: ${AMFA_SECRET_ENCRYPTION_KEY:MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=}
+      otp-expiration-seconds: ${AMFA_OTP_EXPIRATION_SECONDS:300}
+      otp-resend-cooldown-seconds: ${AMFA_OTP_RESEND_COOLDOWN_SECONDS:60}
+      otp-max-attempts: ${AMFA_OTP_MAX_ATTEMPTS:5}
+      challenge-expiration-seconds: ${AMFA_CHALLENGE_EXPIRATION_SECONDS:300}
+      trusted-device-ttl-days: ${AMFA_TRUSTED_DEVICE_TTL_DAYS:30}
+      max-failed-login-attempts: ${AMFA_MAX_FAILED_LOGIN_ATTEMPTS:5}
+      lockout-duration-minutes: ${AMFA_LOCKOUT_DURATION_MINUTES:15}
+      rate-limit-window-seconds: ${AMFA_RATE_LIMIT_WINDOW_SECONDS:300}
+      rate-limit-max-requests: ${AMFA_RATE_LIMIT_MAX_REQUESTS:10}
+      high-value-transfer-threshold: ${AMFA_HIGH_VALUE_TRANSFER_THRESHOLD:25000}
+      critical-value-transfer-threshold: ${AMFA_CRITICAL_VALUE_TRANSFER_THRESHOLD:500000}
+      weights:
+        unrecognized-device: 30
+        new-browser: 15
+        ip-change: 15
+        failed-attempts: 25
+        high-value-tx: 30
+        high-frequency-tx: 25
+        sensitive-operation: 30
+      mail-from: ${AMFA_MAIL_FROM:no-reply@bank.internal}
   concurrency:
     worker-pool-size: 10
     queue-capacity: 1000

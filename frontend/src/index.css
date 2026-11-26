@@ -4,6 +4,26 @@
 
 @layer base {
   body {
-    @apply bg-slate-50 text-slate-900;
+    background-color: #F3E7D4;
+    color: #1B130D;
   }
+}
+
+/* Warm Beige Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #EFE2CE;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #CEB896;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #70411A;
 }

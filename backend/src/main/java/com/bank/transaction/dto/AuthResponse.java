@@ -13,6 +13,17 @@ public class AuthResponse {
     private String email;
     private List<String> roles;
 
+    // Adaptive MFA metadata
+    private boolean mfaRequired = false;
+    private String mfaPendingToken;
+    private String challengeId;
+    private String requiredMethod;
+    private String riskLevel;
+    private Integer riskScore;
+    private List<String> riskReasons;
+    private String deviceId;
+    private boolean trustedDevice;
+
     public AuthResponse() {}
 
     public AuthResponse(String accessToken, String refreshToken, long expiresInMs, Long userId, String username, String email, List<String> roles) {
@@ -88,4 +99,23 @@ public class AuthResponse {
     public void setRoles(List<String> roles) {
         this.roles = roles;
     }
+
+    public boolean isMfaRequired() { return mfaRequired; }
+    public void setMfaRequired(boolean mfaRequired) { this.mfaRequired = mfaRequired; }
+    public String getMfaPendingToken() { return mfaPendingToken; }
+    public void setMfaPendingToken(String mfaPendingToken) { this.mfaPendingToken = mfaPendingToken; }
+    public String getChallengeId() { return challengeId; }
+    public void setChallengeId(String challengeId) { this.challengeId = challengeId; }
+    public String getRequiredMethod() { return requiredMethod; }
+    public void setRequiredMethod(String requiredMethod) { this.requiredMethod = requiredMethod; }
+    public String getRiskLevel() { return riskLevel; }
+    public void setRiskLevel(String riskLevel) { this.riskLevel = riskLevel; }
+    public Integer getRiskScore() { return riskScore; }
+    public void setRiskScore(Integer riskScore) { this.riskScore = riskScore; }
+    public List<String> getRiskReasons() { return riskReasons; }
+    public void setRiskReasons(List<String> riskReasons) { this.riskReasons = riskReasons; }
+    public String getDeviceId() { return deviceId; }
+    public void setDeviceId(String deviceId) { this.deviceId = deviceId; }
+    public boolean isTrustedDevice() { return trustedDevice; }
+    public void setTrustedDevice(boolean trustedDevice) { this.trustedDevice = trustedDevice; }
 }

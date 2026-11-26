@@ -18,6 +18,94 @@ export interface AuthResponseData {
   username: string;
   email: string;
   roles: string[];
+  mfaRequired?: boolean;
+  mfaPendingToken?: string;
+  challengeId?: string;
+  requiredMethod?: string;
+  riskLevel?: RiskLevel | string;
+  riskScore?: number;
+  riskReasons?: string[];
+  deviceId?: string;
+  trustedDevice?: boolean;
+}
+
+export interface MfaStatus {
+  mfaEnabled: boolean;
+  preferredMethod: 'EMAIL_OTP' | 'TOTP';
+  emailOtpEnabled: boolean;
+  totpEnabled: boolean;
+  trustedDevicesCount: number;
+  lastLoginAt?: string;
+  lastLoginIp?: string;
+  failedLoginAttempts: number;
+  lockedUntil?: string;
+}
+
+export interface TotpSetupData {
+  otpAuthUri: string;
+  manualEntryKey: string;
+  issuer: string;
+  accountLabel: string;
+}
+
+export interface TrustedDeviceItem {
+  deviceId: string;
+  deviceName: string;
+  browser?: string;
+  operatingSystem?: string;
+  ipAddress?: string;
+  locationHint?: string;
+  trusted: boolean;
+  revoked: boolean;
+  lastLoginAt: string;
+  expiresAt: string;
+  createdAt: string;
+}
+
+export interface SecurityEventItem {
+  eventId: string;
+  userId?: number;
+  username?: string;
+  eventType: string;
+  severity: string;
+  riskScore?: number;
+  riskLevel?: string;
+  ipAddress?: string;
+  userAgent?: string;
+  deviceId?: string;
+  outcome: string;
+  details?: string;
+  createdAt: string;
+}
+
+export interface OtpSendResult {
+  otpId: string;
+  challengeId?: string;
+  purpose: string;
+  maskedDestination: string;
+  expiresInSeconds: number;
+  resendCooldownSeconds: number;
+  expiresAt: string;
+}
+
+export interface ChallengeVerifyResult {
+  verified: boolean;
+  challengeId?: string;
+  challengeType?: string;
+  status: string;
+  message: string;
+  auth?: AuthResponseData;
+}
+
+export interface MfaChallengeDetails {
+  challengeId: string;
+  challengeType?: string;
+  requiredMethod: string;
+  riskScore: number;
+  riskLevel: string;
+  riskReasons?: string[];
+  targetReference?: string;
+  expiresAt?: string;
 }
 
 export type AccountStatus = 'ACTIVE' | 'FROZEN' | 'CLOSED';

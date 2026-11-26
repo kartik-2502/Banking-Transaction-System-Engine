@@ -46,7 +46,7 @@ class AccountFreezeAndRiskIntegrationTest {
     @DisplayName("Account Freeze lifecycle: Freeze blocks transactions, logs status change, and Unfreeze restores operations")
     void testAccountFreezeAndUnfreezeLifecycle() {
         // 1. Freeze account ACC1001
-        AccountResponse frozenAcc = accountService.freezeAccount("ACC1001", "Suspicious cross-border burst", "analyst1");
+        AccountResponse frozenAcc = accountService.freezeAccount("ACC1001", "Suspicious cross-border burst", "kavya_nair");
         assertNotNull(frozenAcc);
         assertEquals(AccountStatus.FROZEN, frozenAcc.getStatus());
 
@@ -60,11 +60,11 @@ class AccountFreezeAndRiskIntegrationTest {
         assertFalse(history.isEmpty());
         AccountStatusHistoryResponse latest = history.get(0);
         assertEquals(AccountStatus.FROZEN, latest.getNewStatus());
-        assertEquals("analyst1", latest.getChangedBy());
+        assertEquals("kavya_nair", latest.getChangedBy());
         assertEquals("Suspicious cross-border burst", latest.getReason());
 
         // 4. Unfreeze account ACC1001
-        AccountResponse unfrozenAcc = accountService.unfreezeAccount("ACC1001", "Customer identity successfully validated", "analyst1");
+        AccountResponse unfrozenAcc = accountService.unfreezeAccount("ACC1001", "Customer identity successfully validated", "kavya_nair");
         assertEquals(AccountStatus.ACTIVE, unfrozenAcc.getStatus());
 
         // 5. Transaction must now succeed normally
@@ -84,7 +84,7 @@ class AccountFreezeAndRiskIntegrationTest {
                 new BigDecimal("25000.00"),
                 new BigDecimal("5000.00")
         );
-        AccountTransactionLimitResponse limitRes = accountService.updateAccountLimits("ACC1001", limitReq, "analyst1");
+        AccountTransactionLimitResponse limitRes = accountService.updateAccountLimits("ACC1001", limitReq, "kavya_nair");
         assertEquals(new BigDecimal("5000.00"), limitRes.getPerTransactionLimit());
         assertEquals(new BigDecimal("25000.00"), limitRes.getDailyLimit());
 

@@ -1,60 +1,68 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User, UserRole } from '../types';
+import { AuthResponseData, User, UserRole } from '../types';
 import { authApi } from '../services/api';
+
+export interface LoginResult {
+  success: boolean;
+  error?: string;
+  mfaRequired?: boolean;
+  mfaData?: AuthResponseData;
+}
 
 interface AuthContextType {
   user: User | null;
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (username: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  login: (username: string, password: string) => Promise<LoginResult>;
+  completeMfaLogin: (data: AuthResponseData) => void;
   logout: () => void;
   switchUser: (role: UserRole) => void;
 }
 
 export const DEMO_ACCOUNTS: Record<string, User> = {
-  john_doe: {
+  aarav_sharma: {
     id: 1,
-    username: 'john_doe',
-    email: 'john.doe@example.com',
-    fullName: 'John Doe',
+    username: 'aarav_sharma',
+    email: 'aarav.sharma@apexbank.com',
+    fullName: 'Aarav Sharma',
     roles: ['CUSTOMER'],
     accountNumber: 'ACC1001',
   },
-  jane_smith: {
+  priya_patel: {
     id: 2,
-    username: 'jane_smith',
-    email: 'jane.smith@example.com',
-    fullName: 'Jane Smith',
+    username: 'priya_patel',
+    email: 'priya.patel@apexbank.com',
+    fullName: 'Priya Patel',
     roles: ['CUSTOMER'],
     accountNumber: 'ACC2004',
   },
-  loan_officer1: {
+  ananya_verma: {
     id: 3,
-    username: 'loan_officer1',
-    email: 'sarah.jenkins@bank.internal',
-    fullName: 'Sarah Jenkins',
+    username: 'ananya_verma',
+    email: 'ananya.verma@apexbank.com',
+    fullName: 'Ananya Verma',
     roles: ['LOAN_OFFICER'],
   },
-  admin: {
+  system_administrator: {
     id: 4,
-    username: 'admin',
-    email: 'admin@bank.internal',
+    username: 'system_administrator',
+    email: 'system.administrator@apexbank.com',
     fullName: 'System Administrator',
     roles: ['ADMIN'],
   },
-  teller1: {
+  rohan_kulkarni: {
     id: 5,
-    username: 'teller1',
-    email: 'david.miller@bank.internal',
-    fullName: 'David Miller',
+    username: 'rohan_kulkarni',
+    email: 'rohan.kulkarni@apexbank.com',
+    fullName: 'Rohan Kulkarni',
     roles: ['TELLER'],
   },
-  analyst1: {
+  kavya_nair: {
     id: 6,
-    username: 'analyst1',
-    email: 'elena.rostova@bank.internal',
-    fullName: 'Elena Rostova',
+    username: 'kavya_nair',
+    email: 'kavya.nair@apexbank.com',
+    fullName: 'Kavya Nair',
     roles: ['RISK_ANALYST'],
   },
 };
@@ -68,59 +76,100 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Restore authenticated session from localStorage on initial load
   useEffect(() => {
-    try {
-      const savedToken = localStorage.getItem('bank_token');
-      const savedUser = localStorage.getItem('bank_user');
-      if (savedToken && savedUser) {
-        setToken(savedToken);
-        setUser(JSON.parse(savedUser));
+    const restoreSession = async () => {
+      try {
+        const savedToken = localStorage.getItem('bank_token');
+        const savedUser = localStorage.getItem('bank_user');
+        if (savedToken && savedUser) {
+          const parsedUser: User = JSON.parse(savedUser);
+          setToken(savedToken);
+          setUser(parsedUser);
+
+          // If previous login happened while backend was offline, silently upgrade to a real JWT
+          if (savedToken.startsWith('bank_token_') && parsedUser.username) {
+            try {
+              const data = await authApi.login(parsedUser.username, 'password');
+              if (data && data.accessToken) {
+                const roles: UserRole[] = (data.roles || []).map((r: string) =>
+                  r.replace('ROLE_', '') as UserRole
+                );
+                const upgradedUser: User = {
+                  ...parsedUser,
+                  id: data.userId || parsedUser.id,
+                  roles: roles.length > 0 ? roles : parsedUser.roles,
+                };
+                setToken(data.accessToken);
+                setUser(upgradedUser);
+                localStorage.setItem('bank_token', data.accessToken);
+                localStorage.setItem('bank_user', JSON.stringify(upgradedUser));
+              }
+            } catch {
+              // Keep demo session if backend is still unreachable
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Failed to parse stored user profile', e);
+        localStorage.removeItem('bank_token');
+        localStorage.removeItem('bank_user');
+      } finally {
+        setIsLoading(false);
       }
-    } catch (e) {
-      console.error('Failed to parse stored user profile', e);
-      localStorage.removeItem('bank_token');
-      localStorage.removeItem('bank_user');
-    } finally {
-      setIsLoading(false);
-    }
+    };
+    restoreSession();
   }, []);
 
-  const login = async (username: string, password: string): Promise<{ success: boolean; error?: string }> => {
+  const completeMfaLogin = (data: AuthResponseData) => {
+    const cleanUsername = (data.username || '').trim().toLowerCase();
+    const roles: UserRole[] = (data.roles || []).map((r: string) =>
+      r.replace('ROLE_', '') as UserRole
+    );
+    const loggedUser: User = {
+      id: data.userId,
+      username: data.username,
+      email: data.email,
+      fullName: DEMO_ACCOUNTS[cleanUsername]?.fullName || data.username,
+      roles: roles.length > 0 ? roles : ['CUSTOMER'],
+      accountNumber: DEMO_ACCOUNTS[cleanUsername]?.accountNumber || 'ACC1001',
+    };
+
+    setToken(data.accessToken);
+    setUser(loggedUser);
+    localStorage.setItem('bank_token', data.accessToken);
+    localStorage.setItem('bank_user', JSON.stringify(loggedUser));
+  };
+
+  const login = async (username: string, password: string): Promise<LoginResult> => {
     setIsLoading(true);
     const cleanUsername = username.trim().toLowerCase();
 
     try {
       // 1. Attempt live backend authentication
       const data = await authApi.login(cleanUsername, password);
-      if (data && data.accessToken) {
-        const roles: UserRole[] = (data.roles || []).map((r: string) =>
-          r.replace('ROLE_', '') as UserRole
-        );
-        const loggedUser: User = {
-          id: data.userId,
-          username: data.username,
-          email: data.email,
-          fullName: DEMO_ACCOUNTS[cleanUsername]?.fullName || data.username,
-          roles: roles.length > 0 ? roles : ['CUSTOMER'],
-          accountNumber: DEMO_ACCOUNTS[cleanUsername]?.accountNumber || 'ACC1001',
+      if (data && data.mfaRequired) {
+        return {
+          success: false,
+          mfaRequired: true,
+          mfaData: data,
         };
-
-        setToken(data.accessToken);
-        setUser(loggedUser);
-        localStorage.setItem('bank_token', data.accessToken);
-        localStorage.setItem('bank_user', JSON.stringify(loggedUser));
+      }
+      if (data && data.accessToken) {
+        completeMfaLogin(data);
         return { success: true };
       }
     } catch (err: any) {
-      console.warn('Backend login attempt encountered an error; evaluating local demo fallback credentials.', err);
-      // 2. Seamless local fallback if backend is offline or for seeded test accounts
-      if (DEMO_ACCOUNTS[cleanUsername] && (password === 'password' || password === 'admin' || password.length > 0)) {
-        const demoUser = DEMO_ACCOUNTS[cleanUsername];
-        const dummyToken = `bank_token_${cleanUsername}_${Date.now()}`;
-        setToken(dummyToken);
-        setUser(demoUser);
-        localStorage.setItem('bank_token', dummyToken);
-        localStorage.setItem('bank_user', JSON.stringify(demoUser));
-        return { success: true };
+      // Only fall back to local demo when backend is unreachable (network error / 502)
+      if (!err.response || err.response.status >= 502) {
+        console.warn('Backend unreachable; evaluating local demo fallback credentials.', err);
+        if (DEMO_ACCOUNTS[cleanUsername] && password === 'password') {
+          const demoUser = DEMO_ACCOUNTS[cleanUsername];
+          const dummyToken = `bank_token_${cleanUsername}_${Date.now()}`;
+          setToken(dummyToken);
+          setUser(demoUser);
+          localStorage.setItem('bank_token', dummyToken);
+          localStorage.setItem('bank_user', JSON.stringify(demoUser));
+          return { success: true };
+        }
       }
 
       return {
@@ -142,9 +191,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const switchUser = (role: UserRole) => {
-    let target = DEMO_ACCOUNTS.john_doe;
-    if (role === 'LOAN_OFFICER') target = DEMO_ACCOUNTS.loan_officer1;
-    if (role === 'ADMIN') target = DEMO_ACCOUNTS.admin;
+    let target = DEMO_ACCOUNTS.aarav_sharma;
+    if (role === 'LOAN_OFFICER') target = DEMO_ACCOUNTS.ananya_verma;
+    if (role === 'ADMIN') target = DEMO_ACCOUNTS.system_administrator;
     const dummyToken = `bank_token_${target.username}_${Date.now()}`;
     setToken(dummyToken);
     setUser(target);
@@ -160,6 +209,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAuthenticated: !!token && !!user,
         isLoading,
         login,
+        completeMfaLogin,
         logout,
         switchUser,
       }}

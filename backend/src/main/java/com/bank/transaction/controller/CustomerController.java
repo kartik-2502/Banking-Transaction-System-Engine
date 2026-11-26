@@ -1,7 +1,10 @@
 package com.bank.transaction.controller;
 
 import com.bank.transaction.dto.*;
+import com.bank.transaction.model.ChallengeType;
+import com.bank.transaction.service.AdaptiveMfaService;
 import com.bank.transaction.service.CustomerService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -9,6 +12,8 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -18,9 +23,12 @@ import java.util.List;
 public class CustomerController {
 
     private final CustomerService customerService;
+    private final AdaptiveMfaService adaptiveMfaService;
 
-    public CustomerController(CustomerService customerService) {
+    public CustomerController(CustomerService customerService,
+                              AdaptiveMfaService adaptiveMfaService) {
         this.customerService = customerService;
+        this.adaptiveMfaService = adaptiveMfaService;
     }
 
     @PostMapping
@@ -48,10 +56,31 @@ public class CustomerController {
     }
 
     @PutMapping("/{customerNumber}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'CUSTOMER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TELLER')")
     public ResponseEntity<ApiResponse<CustomerResponse>> updateCustomer(
+            @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable("customerNumber") String customerNumber,
-            @Valid @RequestBody CustomerUpdateRequest request) {
+            @Valid @RequestBody CustomerUpdateRequest request,
+            HttpServletRequest httpRequest) {
+        if (userDetails != null) {
+            AdaptiveMfaService.ClientContext ctx = new AdaptiveMfaService.ClientContext(
+                    httpRequest.getRemoteAddr(),
+                    httpRequest.getHeader("User-Agent"),
+                    httpRequest.getHeader("X-Device-Fingerprint"),
+                    null, null, null, null
+            );
+            adaptiveMfaService.enforceSensitiveOperationVerification(
+                    userDetails.getUsername(),
+                    ChallengeType.CONTACT_CHANGE,
+                    null,
+                    null,
+                    null,
+                    customerNumber,
+                    request.getChallengeId(),
+                    true,
+                    ctx
+            );
+        }
         CustomerResponse response = customerService.updateCustomer(customerNumber, request);
         return ResponseEntity.ok(ApiResponse.ok("Customer updated successfully", response));
     }

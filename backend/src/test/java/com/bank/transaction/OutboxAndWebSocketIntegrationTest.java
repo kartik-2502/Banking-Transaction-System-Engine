@@ -110,7 +110,7 @@ class OutboxAndWebSocketIntegrationTest {
     @Test
     @DisplayName("Notification Service: Unread count, paginated retrieval, and mark as read workflow")
     void testNotificationServiceWorkflow() {
-        Long userId = userRepository.findByUsername("john_doe").orElseThrow().getId();
+        Long userId = userRepository.findByUsername("aarav_sharma").orElseThrow().getId();
 
         NotificationResponse created = notificationService.createNotification(
                 userId, "SYSTEM_ALERT", "Security Notice", "Your account security settings were updated."

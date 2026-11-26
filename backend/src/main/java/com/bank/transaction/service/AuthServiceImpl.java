@@ -4,7 +4,9 @@ import com.bank.transaction.dto.AuthResponse;
 import com.bank.transaction.dto.LoginRequest;
 import com.bank.transaction.dto.RegisterRequest;
 import com.bank.transaction.dto.UserProfileResponse;
+import com.bank.transaction.dto.mfa.ChangePasswordRequest;
 import com.bank.transaction.exception.InvalidTransactionException;
+import com.bank.transaction.model.ChallengeType;
 import com.bank.transaction.model.Customer;
 import com.bank.transaction.model.Role;
 import com.bank.transaction.model.RoleName;
@@ -16,6 +18,7 @@ import com.bank.transaction.security.JwtTokenProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
@@ -40,33 +43,58 @@ public class AuthServiceImpl implements AuthService {
     private final CustomerRepository customerRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider tokenProvider;
+    private final AdaptiveMfaService adaptiveMfaService;
+    private final SecurityEventService securityEventService;
 
     public AuthServiceImpl(AuthenticationManager authenticationManager,
                            UserRepository userRepository,
                            RoleRepository roleRepository,
                            CustomerRepository customerRepository,
                            PasswordEncoder passwordEncoder,
-                           JwtTokenProvider tokenProvider) {
+                           JwtTokenProvider tokenProvider,
+                           AdaptiveMfaService adaptiveMfaService,
+                           SecurityEventService securityEventService) {
         this.authenticationManager = authenticationManager;
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.customerRepository = customerRepository;
         this.passwordEncoder = passwordEncoder;
         this.tokenProvider = tokenProvider;
+        this.adaptiveMfaService = adaptiveMfaService;
+        this.securityEventService = securityEventService;
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public AuthResponse login(LoginRequest request) {
+        return login(request, new AdaptiveMfaService.ClientContext(
+                "127.0.0.1",
+                "API-Client",
+                request.getDeviceFingerprint(),
+                request.getDeviceName(),
+                request.getBrowser(),
+                request.getOperatingSystem(),
+                request.getLocationHint()
+        ));
+    }
+
+    @Override
+    @Transactional
+    public AuthResponse login(LoginRequest request, AdaptiveMfaService.ClientContext clientContext) {
         log.info("Authenticating user: {}", request.getUsername());
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
-        );
+        userRepository.findByUsername(request.getUsername()).ifPresent(adaptiveMfaService::assertNotLocked);
+
+        Authentication authentication;
+        try {
+            authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
+            );
+        } catch (BadCredentialsException ex) {
+            adaptiveMfaService.recordFailedLogin(request.getUsername(), clientContext);
+            throw ex;
+        }
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
-
-        String accessToken = tokenProvider.generateAccessToken(authentication);
-        String refreshToken = tokenProvider.generateRefreshToken(request.getUsername());
 
         User user = userRepository.findByUsername(request.getUsername())
                 .orElseThrow(() -> new UsernameNotFoundException("User not found: " + request.getUsername()));
@@ -75,15 +103,7 @@ public class AuthServiceImpl implements AuthService {
                 .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.toList());
 
-        return new AuthResponse(
-                accessToken,
-                refreshToken,
-                tokenProvider.getExpirationMs(),
-                user.getId(),
-                user.getUsername(),
-                user.getEmail(),
-                roles
-        );
+        return adaptiveMfaService.evaluateLogin(user, roles, clientContext);
     }
 
     @Override
@@ -117,7 +137,12 @@ public class AuthServiceImpl implements AuthService {
 
         // Auto-create customer profile if role is CUSTOMER
         if (targetRole == RoleName.CUSTOMER) {
-            String customerNumber = "CUST" + (1000 + savedUser.getId());
+            long sequenceNum = 1000L + savedUser.getId();
+            String customerNumber = "CUST" + sequenceNum;
+            while (customerRepository.existsByCustomerNumber(customerNumber)) {
+                sequenceNum += 1;
+                customerNumber = "CUST" + sequenceNum;
+            }
             Customer customer = new Customer(
                     customerNumber,
                     savedUser.getUsername(),
@@ -193,6 +218,39 @@ public class AuthServiceImpl implements AuthService {
         });
 
         return response;
+    }
+
+    @Override
+    @Transactional
+    public void changePassword(String username, ChangePasswordRequest request, AdaptiveMfaService.ClientContext clientContext) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
+
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {
+            throw new InvalidTransactionException("Current password is incorrect.");
+        }
+
+        adaptiveMfaService.enforceSensitiveOperationVerification(
+                username,
+                ChallengeType.PASSWORD_CHANGE,
+                null,
+                null,
+                null,
+                "PASSWORD_CHANGE:" + username,
+                request.getChallengeId(),
+                false,
+                clientContext
+        );
+
+        user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+
+        securityEventService.recordEvent(
+                user.getId(), username, "PASSWORD_CHANGED",
+                "MEDIUM", 30, com.bank.transaction.model.RiskLevel.MEDIUM,
+                clientContext.getIpAddress(), clientContext.getUserAgent(), null, "SUCCESS",
+                "Password changed after adaptive MFA verification"
+        );
     }
 
     private RoleName parseRole(String roleStr) {

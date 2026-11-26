@@ -24,15 +24,18 @@ public class JwtTokenProvider {
     private final SecretKey key;
     private final long jwtExpirationMs;
     private final long refreshExpirationMs;
+    private final long mfaPendingExpirationMs;
 
     public JwtTokenProvider(
             @Value("${banking.security.jwt.secret}") String secret,
             @Value("${banking.security.jwt.expiration-ms:86400000}") long jwtExpirationMs,
-            @Value("${banking.security.jwt.refresh-expiration-ms:604800000}") long refreshExpirationMs) {
+            @Value("${banking.security.jwt.refresh-expiration-ms:604800000}") long refreshExpirationMs,
+            @Value("${banking.security.jwt.mfa-pending-expiration-ms:300000}") long mfaPendingExpirationMs) {
         byte[] keyBytes = Decoders.BASE64.decode(secret);
         this.key = Keys.hmacShaKeyFor(keyBytes);
         this.jwtExpirationMs = jwtExpirationMs;
         this.refreshExpirationMs = refreshExpirationMs;
+        this.mfaPendingExpirationMs = mfaPendingExpirationMs;
     }
 
     public String generateAccessToken(Authentication authentication) {
@@ -47,6 +50,8 @@ public class JwtTokenProvider {
         return Jwts.builder()
                 .subject(userDetails.getUsername())
                 .claim("roles", roles)
+                .claim("token_stage", "FULL_ACCESS")
+                .claim("mfa_verified", true)
                 .issuedAt(now)
                 .expiration(expiryDate)
                 .signWith(key)
@@ -54,16 +59,47 @@ public class JwtTokenProvider {
     }
 
     public String generateAccessToken(String username, List<String> roles) {
+        return generateAccessToken(username, roles, true);
+    }
+
+    public String generateAccessToken(String username, List<String> roles, boolean mfaVerified) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtExpirationMs);
 
         return Jwts.builder()
                 .subject(username)
                 .claim("roles", roles)
+                .claim("token_stage", "FULL_ACCESS")
+                .claim("mfa_verified", mfaVerified)
                 .issuedAt(now)
                 .expiration(expiryDate)
                 .signWith(key)
                 .compact();
+    }
+
+    public String generateMfaPendingToken(String username, String challengeId) {
+        Date now = new Date();
+        Date expiryDate = new Date(now.getTime() + mfaPendingExpirationMs);
+
+        return Jwts.builder()
+                .subject(username)
+                .claim("token_stage", "MFA_PENDING")
+                .claim("mfa_verified", false)
+                .claim("challenge_id", challengeId)
+                .issuedAt(now)
+                .expiration(expiryDate)
+                .signWith(key)
+                .compact();
+    }
+
+    public String getTokenStage(String token) {
+        Claims claims = Jwts.parser()
+                .verifyWith(key)
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
+        String stage = claims.get("token_stage", String.class);
+        return stage != null ? stage : "FULL_ACCESS";
     }
 
     public String generateRefreshToken(String username) {

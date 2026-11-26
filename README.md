@@ -88,6 +88,17 @@ The orchestration will automatically provision:
 * **Admin & Compliance Dashboard:** `http://localhost:3000/admin`
 * **Backend Health & Metrics:** `http://localhost:8080/actuator/health`
 
+### Default Demo Accounts (`firstname_lastname`, Password: `password`)
+
+| Username | Full Name | Role |
+| :--- | :--- | :--- |
+| `aarav_sharma` | Aarav Sharma | `CUSTOMER` (`ACC1001`) |
+| `priya_patel` | Priya Patel | `CUSTOMER` (`ACC2004`) |
+| `rohan_kulkarni` | Rohan Kulkarni | `TELLER` |
+| `ananya_verma` | Ananya Verma | `LOAN_OFFICER` |
+| `kavya_nair` | Kavya Nair | `RISK_ANALYST` |
+| `system_administrator` | System Administrator | `ADMIN` |
+
 ---
 
 ## Local Development & Manual Build
@@ -97,6 +108,15 @@ The orchestration will automatically provision:
 * **Apache Maven 3.9+** (`mvn -v`)
 * **Node.js 20+ & npm** (`node -v`)
 * **PostgreSQL 16+ or 18+** running on `localhost:5432` (`banking_db`)
+
+### Adaptive MFA Environment Variables
+Configure via `.env` or environment variables (defaults in `backend/src/main/resources/application.yml`):
+- `AMFA_ENABLED=true`: Enable/disable adaptive risk-based MFA enforcement.
+- `AMFA_SECRET_ENCRYPTION_KEY`: Base64 256-bit AES key used to encrypt TOTP secrets at rest.
+- `AMFA_OTP_EXPIRATION_SECONDS=300` / `AMFA_OTP_RESEND_COOLDOWN_SECONDS=60` / `AMFA_OTP_MAX_ATTEMPTS=5`.
+- `AMFA_HIGH_VALUE_TRANSFER_THRESHOLD=25000` / `AMFA_CRITICAL_VALUE_TRANSFER_THRESHOLD=500000`.
+- `AMFA_MAX_FAILED_LOGIN_ATTEMPTS=5` / `AMFA_LOCKOUT_DURATION_MINUTES=15`.
+- Optional SMTP delivery: set `SPRING_MAIL_HOST`, `SPRING_MAIL_PORT`, `SPRING_MAIL_USERNAME`, `SPRING_MAIL_PASSWORD` (falls back cleanly to masked outbox notifications when SMTP is not configured).
 
 ### Verification & Testing Commands
 
@@ -137,8 +157,21 @@ Results executed against PostgreSQL 18.3 under high multi-threaded saturation:
 
 | Module | Method | Endpoint | Description |
 | :--- | :--- | :--- | :--- |
-| **Auth** | `POST` | `/api/auth/login` | Authenticate user & issue JWT bearer token |
+| **Auth** | `POST` | `/api/auth/login` | Authenticate user & evaluate adaptive MFA risk (returns full JWT or `MFA_PENDING` challenge) |
+| **Auth** | `POST` | `/api/auth/change-password` | Update password with mandatory AMFA challenge verification |
+| **AMFA** | `POST` | `/api/auth/mfa/send-otp` | Generate salted 6-digit Email OTP (5-min expiry, 60s cooldown) |
+| **AMFA** | `POST` | `/api/auth/mfa/verify-otp` | Verify OTP hash, prevent replay, optionally trust device |
+| **AMFA** | `POST` | `/api/auth/mfa/totp/setup` | Generate AES-GCM encrypted Base32 secret & `otpauth://` QR URI |
+| **AMFA** | `POST` | `/api/auth/mfa/totp/verify` | Verify RFC 6238 6-digit TOTP code & enroll authenticator app |
+| **AMFA** | `GET` | `/api/auth/mfa/status` | Retrieve MFA enrollment, preferred method, and trusted device count |
+| **AMFA** | `POST` | `/api/auth/mfa/enable` | Enable MFA (`EMAIL_OTP` or `TOTP`) |
+| **AMFA** | `POST` | `/api/auth/mfa/disable` | Disable MFA (requires current password + active OTP/TOTP factor) |
+| **AMFA** | `GET` | `/api/auth/mfa/devices` | List registered trusted devices for the user |
+| **AMFA** | `DELETE` | `/api/auth/mfa/devices/{deviceId}` | Revoke a specific trusted device (`DELETE /devices` revokes all) |
+| **AMFA** | `POST` | `/api/auth/mfa/transaction-challenge` | Create a transaction-bound verification challenge |
+| **Security** | `GET` | `/api/auth/security-events` | Paginated login activity & security alert audit log |
 | **Accounts** | `GET` | `/api/accounts` | Paginated listing of customer accounts |
+| **Accounts** | `GET` | `/api/accounts/transfer-targets` | Active transfer beneficiary accounts for customer transfers |
 | **Accounts** | `GET` | `/api/accounts/{accountNumber}/risk-profile`| Fetch account balance, limits, and risk profile |
 | **Accounts** | `PUT` | `/api/accounts/{accountNumber}/freeze` | Place administrative freeze on account |
 | **Accounts** | `PUT` | `/api/accounts/{accountNumber}/unfreeze` | Restore frozen account with audit remark |

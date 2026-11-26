@@ -91,10 +91,10 @@ class FraudDetectionIntegrationTest {
                 FraudAlertStatus.RESOLVED,
                 "Verified high-value corporate treasury deposit via phone verification"
         );
-        FraudAlertResponse reviewedAlert = fraudService.reviewAlert(targetAlert.getId(), "analyst1", reviewReq);
+        FraudAlertResponse reviewedAlert = fraudService.reviewAlert(targetAlert.getId(), "kavya_nair", reviewReq);
 
         assertEquals(FraudAlertStatus.RESOLVED, reviewedAlert.getStatus());
-        assertEquals("analyst1", reviewedAlert.getResolvedBy());
+        assertEquals("kavya_nair", reviewedAlert.getResolvedBy());
         assertNotNull(reviewedAlert.getResolvedAt());
     }
 }

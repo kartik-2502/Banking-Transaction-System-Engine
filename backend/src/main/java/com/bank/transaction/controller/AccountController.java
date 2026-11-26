@@ -41,6 +41,27 @@ public class AccountController {
         return ResponseEntity.ok(ApiResponse.ok(accounts));
     }
 
+    @GetMapping("/transfer-targets")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TELLER', 'RISK_ANALYST', 'CUSTOMER', 'LOAN_OFFICER')")
+    public ResponseEntity<ApiResponse<List<AccountResponse>>> getTransferTargets() {
+        List<AccountResponse> targets = accountService.getAllAccounts(AccountStatus.ACTIVE, Pageable.ofSize(100))
+                .getContent()
+                .stream()
+                .filter(acc -> acc.getStatus() == AccountStatus.ACTIVE)
+                .map(acc -> {
+                    AccountResponse safe = new AccountResponse();
+                    safe.setId(acc.getId());
+                    safe.setAccountNumber(acc.getAccountNumber());
+                    safe.setCustomerNumber(acc.getCustomerNumber());
+                    safe.setCustomerName(acc.getCustomerName());
+                    safe.setCurrency(acc.getCurrency());
+                    safe.setStatus(acc.getStatus());
+                    return safe;
+                })
+                .toList();
+        return ResponseEntity.ok(ApiResponse.ok(targets));
+    }
+
     @GetMapping("/{accountNumber}")
     @PreAuthorize("hasAnyRole('ADMIN', 'TELLER', 'RISK_ANALYST', 'CUSTOMER', 'LOAN_OFFICER')")
     public ResponseEntity<ApiResponse<AccountResponse>> getAccountByNumber(

@@ -26,7 +26,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@WithMockUser(username = "admin", roles = {"ADMIN"})
+@WithMockUser(username = "system_administrator", roles = {"ADMIN"})
 class CustomerAndAccountControllerIntegrationTest {
 
     @Autowired

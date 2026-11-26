@@ -12,13 +12,20 @@ import {
   LoanOfficerDashboardStats,
   LoanPortfolioAnalytics,
   LoanRepaymentSchedule,
+  MfaStatus,
   NotificationItem,
+  OtpSendResult,
+  SecurityEventItem,
   SystemOverviewAnalytics,
   TopAccountVolume,
+  TotpSetupData,
   Transaction,
+  TrustedDeviceItem,
+  ChallengeVerifyResult,
 } from '../types';
+import { getDeviceMetadata } from '../utils/deviceFingerprint';
 
-const API_BASE_URL = 'http://localhost:8080';
+const API_BASE_URL = '';
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -27,21 +34,28 @@ export const apiClient = axios.create({
   },
 });
 
-// Attach JWT token from localStorage if present
+// Attach JWT token and device metadata headers if present
 apiClient.interceptors.request.use((config) => {
   const token = localStorage.getItem('bank_token');
-  if (token) {
+  if (token && !config.headers.Authorization) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  const meta = getDeviceMetadata();
+  config.headers['X-Device-Fingerprint'] = meta.deviceFingerprint;
+  config.headers['X-Device-Name'] = meta.deviceName;
+  config.headers['X-Browser-Name'] = meta.browser;
+  config.headers['X-OS-Name'] = meta.operatingSystem;
   return config;
 });
 
 // Auth API
 export const authApi = {
   login: async (username: string, password: string): Promise<AuthResponseData> => {
+    const meta = getDeviceMetadata();
     const res = await apiClient.post<ApiResponse<AuthResponseData>>('/api/auth/login', {
       username,
       password,
+      ...meta,
     });
     return res.data.data;
   },
@@ -63,19 +77,23 @@ export const accountApi = {
     const res = await apiClient.get<ApiResponse<Account>>(`/api/accounts/${accountNumber}`);
     return res.data.data;
   },
+  getTransferTargets: async () => {
+    const res = await apiClient.get<ApiResponse<Account[]>>('/api/accounts/transfer-targets');
+    return res.data.data;
+  },
   getRiskProfile: async (accountNumber: string) => {
-    const res = await apiClient.get<ApiResponse<AccountRiskProfile>>(`/api/accounts/${accountNumber}/risk-profile`);
+    const res = await apiClient.get<ApiResponse<AccountRiskProfile>>(`/api/accounts/${accountNumber}/risk`);
     return res.data.data;
   },
   freezeAccount: async (accountNumber: string, reason: string, changedBy: string) => {
-    const res = await apiClient.put<ApiResponse<Account>>(`/api/accounts/${accountNumber}/freeze`, {
+    const res = await apiClient.post<ApiResponse<Account>>(`/api/accounts/${accountNumber}/freeze`, {
       reason,
       changedBy,
     });
     return res.data.data;
   },
   unfreezeAccount: async (accountNumber: string, reason: string, changedBy: string) => {
-    const res = await apiClient.put<ApiResponse<Account>>(`/api/accounts/${accountNumber}/unfreeze`, {
+    const res = await apiClient.post<ApiResponse<Account>>(`/api/accounts/${accountNumber}/unfreeze`, {
       reason,
       changedBy,
     });
@@ -86,6 +104,14 @@ export const accountApi = {
       dailyLimit,
       perTransactionLimit,
       updatedBy,
+    });
+    return res.data.data;
+  },
+  updateStatus: async (accountNumber: string, status: string, reason: string, changedBy: string) => {
+    const res = await apiClient.put<ApiResponse<Account>>(`/api/accounts/${accountNumber}/status`, {
+      status,
+      reason,
+      changedBy,
     });
     return res.data.data;
   },
@@ -105,7 +131,7 @@ export const transactionApi = {
   },
   withdraw: async (accountNumber: string, amount: number, initiatedBy: string) => {
     const txnId = `TXN_WTH_${Date.now()}`;
-    const res = await apiClient.post<ApiResponse<Transaction>>('/api/transactions/withdraw', {
+    const res = await apiClient.post<ApiResponse<Transaction>>('/api/transactions/withdrawal', {
       transactionId: txnId,
       accountNumber,
       amount,
@@ -113,14 +139,23 @@ export const transactionApi = {
     });
     return res.data.data;
   },
-  transfer: async (sourceAccountNumber: string, destinationAccountNumber: string, amount: number, initiatedBy: string) => {
+  transfer: async (
+    sourceAccountNumber: string,
+    destinationAccountNumber: string,
+    amount: number,
+    initiatedBy: string,
+    challengeId?: string
+  ) => {
     const txnId = `TXN_TRF_${Date.now()}`;
+    const meta = getDeviceMetadata();
     const res = await apiClient.post<ApiResponse<Transaction>>('/api/transactions/transfer', {
       transactionId: txnId,
       sourceAccountNumber,
       destinationAccountNumber,
       amount,
       initiatedBy,
+      challengeId,
+      deviceFingerprint: meta.deviceFingerprint,
     });
     return res.data.data;
   },
@@ -156,22 +191,23 @@ export const loanApi = {
     return res.data.data;
   },
   getDashboardStats: async () => {
-    const res = await apiClient.get<ApiResponse<LoanOfficerDashboardStats>>('/api/loans/stats');
+    const res = await apiClient.get<ApiResponse<LoanOfficerDashboardStats>>('/api/loans/dashboard/stats');
     return res.data.data;
   },
-  simulateEligibility: async (monthlyIncome: number, existingMonthlyDebt: number, requestedAmount: number, tenureMonths: number, interestRate: number, creditScore: number) => {
-    const res = await apiClient.post<ApiResponse<LoanEligibilityAssessment>>('/api/loans/simulate-eligibility', {
-      monthlyIncome,
-      existingMonthlyDebt,
-      requestedAmount,
-      tenureMonths,
-      interestRate,
-      creditScore,
+  simulateEligibility: async (monthlyIncome: number, existingMonthlyDebt: number, requestedAmount: number, _tenureMonths: number, _interestRate: number, creditScore: number) => {
+    const res = await apiClient.post<ApiResponse<LoanEligibilityAssessment>>('/api/loans/eligibility-check', null, {
+      params: {
+        monthlyIncome,
+        existingMonthlyDebt,
+        amount: requestedAmount,
+        termMonths: _tenureMonths,
+        creditScore,
+      },
     });
     return res.data.data;
   },
   getRepaymentSchedule: async (loanId: string) => {
-    const res = await apiClient.get<ApiResponse<LoanRepaymentSchedule[]>>(`/api/loans/${loanId}/repayment-schedule`);
+    const res = await apiClient.get<ApiResponse<LoanRepaymentSchedule[]>>(`/api/loans/${loanId}/schedule`);
     return res.data.data;
   },
   reviewLoan: async (loanId: string, status: string, notes?: string, rejectionReason?: string) => {
@@ -184,6 +220,17 @@ export const loanApi = {
   },
   disburseLoan: async (loanId: string) => {
     const res = await apiClient.post<ApiResponse<Loan>>(`/api/loans/${loanId}/disburse`);
+    return res.data.data;
+  },
+  getCustomerLoans: async (customerId: number) => {
+    const res = await apiClient.get<ApiResponse<Loan[]>>(`/api/loans/customer/${customerId}`);
+    return res.data.data;
+  },
+  repay: async (loanId: string, amount: number, sourceAccountNumber?: string) => {
+    const res = await apiClient.post<ApiResponse<Loan>>(`/api/loans/${loanId}/repay`, {
+      amount,
+      sourceAccountNumber,
+    });
     return res.data.data;
   },
 };
@@ -248,5 +295,126 @@ export const fraudApi = {
       notes,
     });
     return res.data.data;
+  },
+};
+
+// Customers API
+export const customerApi = {
+  getCustomers: async (page = 0, size = 20) => {
+    const res = await apiClient.get<ApiResponse<{ content: any[]; totalElements: number }>>(
+      `/api/customers?page=${page}&size=${size}`
+    );
+    return res.data.data;
+  },
+  updateCustomer: async (
+    customerNumber: string,
+    data: { firstName: string; lastName: string; phone: string; address: string }
+  ) => {
+    const res = await apiClient.put<ApiResponse<any>>(`/api/customers/${customerNumber}`, data);
+    return res.data.data;
+  },
+  getCustomerAccounts: async (customerNumber: string) => {
+    const res = await apiClient.get<ApiResponse<Account[]>>(`/api/customers/${customerNumber}/accounts`);
+    return res.data.data;
+  },
+};
+
+// Adaptive Multi-Factor Authentication (AMFA) API
+export const mfaApi = {
+  getStatus: async () => {
+    const res = await apiClient.get<ApiResponse<MfaStatus>>('/api/auth/mfa/status');
+    return res.data.data;
+  },
+  sendOtp: async (challengeId?: string, purpose = 'LOGIN_MFA', pendingToken?: string) => {
+    const res = await apiClient.post<ApiResponse<OtpSendResult>>(
+      '/api/auth/mfa/send-otp',
+      { challengeId, purpose },
+      pendingToken ? { headers: { Authorization: `Bearer ${pendingToken}` } } : undefined
+    );
+    return res.data.data;
+  },
+  verifyOtp: async (
+    payload: {
+      otp: string;
+      challengeId?: string;
+      purpose?: string;
+      trustDevice?: boolean;
+    },
+    pendingToken?: string
+  ) => {
+    const meta = getDeviceMetadata();
+    const res = await apiClient.post<ApiResponse<ChallengeVerifyResult>>(
+      '/api/auth/mfa/verify-otp',
+      { ...payload, ...meta },
+      pendingToken ? { headers: { Authorization: `Bearer ${pendingToken}` } } : undefined
+    );
+    return res.data.data;
+  },
+  setupTotp: async () => {
+    const res = await apiClient.post<ApiResponse<TotpSetupData>>('/api/auth/mfa/totp/setup');
+    return res.data.data;
+  },
+  verifyTotp: async (
+    payload: {
+      code: string;
+      challengeId?: string;
+      trustDevice?: boolean;
+    },
+    pendingToken?: string
+  ) => {
+    const meta = getDeviceMetadata();
+    const res = await apiClient.post<ApiResponse<ChallengeVerifyResult>>(
+      '/api/auth/mfa/totp/verify',
+      { ...payload, ...meta },
+      pendingToken ? { headers: { Authorization: `Bearer ${pendingToken}` } } : undefined
+    );
+    return res.data.data;
+  },
+  enableMfa: async (payload: {
+    preferredMethod: 'EMAIL_OTP' | 'TOTP';
+    emailOtpEnabled?: boolean;
+    otpCode?: string;
+    totpCode?: string;
+  }) => {
+    const res = await apiClient.post<ApiResponse<MfaStatus>>('/api/auth/mfa/enable', payload);
+    return res.data.data;
+  },
+  disableMfa: async (payload: { password: string; otpCode?: string; totpCode?: string }) => {
+    const res = await apiClient.post<ApiResponse<MfaStatus>>('/api/auth/mfa/disable', payload);
+    return res.data.data;
+  },
+  getTrustedDevices: async () => {
+    const res = await apiClient.get<ApiResponse<TrustedDeviceItem[]>>('/api/auth/mfa/devices');
+    return res.data.data;
+  },
+  revokeDevice: async (deviceId: string) => {
+    await apiClient.delete(`/api/auth/mfa/devices/${deviceId}`);
+  },
+  revokeAllDevices: async () => {
+    const res = await apiClient.delete<ApiResponse<{ revokedCount: number }>>('/api/auth/mfa/devices');
+    return res.data.data;
+  },
+  getSecurityEvents: async (page = 0, size = 20, all = false) => {
+    const res = await apiClient.get<ApiResponse<{ content: SecurityEventItem[]; totalElements: number }>>(
+      `/api/auth/security-events?page=${page}&size=${size}&all=${all}`
+    );
+    return res.data.data;
+  },
+  createTransactionChallenge: async (payload: {
+    operationType: string;
+    sourceAccountNumber?: string;
+    destinationAccountNumber?: string;
+    amount?: number;
+  }) => {
+    const meta = getDeviceMetadata();
+    const res = await apiClient.post<ApiResponse<any>>('/api/auth/mfa/transaction-challenge', {
+      ...payload,
+      deviceFingerprint: meta.deviceFingerprint,
+    });
+    return res.data.data;
+  },
+  changePassword: async (payload: { currentPassword: string; newPassword: string; challengeId?: string }) => {
+    const res = await apiClient.post<ApiResponse<void>>('/api/auth/change-password', payload);
+    return res.data;
   },
 };

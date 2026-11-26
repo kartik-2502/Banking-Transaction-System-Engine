@@ -8,12 +8,11 @@ FROM maven:3.9-eclipse-temurin-17-alpine AS builder
 
 WORKDIR /app
 
-# Cache dependencies
+# Copy pom.xml and source code
 COPY pom.xml .
-RUN mvn dependency:go-offline -B
-
-# Copy source code and build production jar
 COPY src ./src
+
+# Build production jar skipping test execution
 RUN mvn clean package -DskipTests -B
 
 # Stage 2: Minimal Production JRE Runtime
@@ -21,12 +20,15 @@ FROM eclipse-temurin:17-jre-alpine
 
 WORKDIR /app
 
-# Non-root service user for container security
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+# Non-root service user for container security with write permissions for logs
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup \
+    && mkdir -p /app/logs \
+    && chown -R appuser:appgroup /app
+
 USER appuser:appgroup
 
 # Copy compiled artifact from build stage
-COPY --from=builder /app/target/banking-transaction-system-*.jar app.jar
+COPY --chown=appuser:appgroup --from=builder /app/target/banking-transaction-system-*.jar app.jar
 
 # Expose Spring Boot HTTP and STOMP WebSocket port
 EXPOSE 8080

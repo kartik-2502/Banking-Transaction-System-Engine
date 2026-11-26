@@ -20,8 +20,10 @@ import {
   LoanOfficerDashboardStats,
   LoanEligibilityAssessment
 } from '../types';
+import { useAuth } from '../context/AuthContext';
 
 export const LoanOfficerDashboard: React.FC = () => {
+  const { user } = useAuth();
   const [stats] = useState<LoanOfficerDashboardStats>({
     totalApplications: 12,
     pendingCount: 4,
@@ -203,7 +205,7 @@ export const LoanOfficerDashboard: React.FC = () => {
               assessmentNotes: reviewNotes,
               interestRate: reviewRate,
               rejectionReason: reviewStatus === 'REJECTED' ? rejectionReason : undefined,
-              reviewedBy: 'loan_officer1',
+              reviewedBy: user?.username || 'loan_officer1',
               updatedAt: new Date().toISOString()
             }
           : l
@@ -295,7 +297,9 @@ export const LoanOfficerDashboard: React.FC = () => {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-white tracking-tight">Loan Officer Underwriting Workbench</h1>
-              <p className="text-sm text-slate-400">Assess creditworthiness, manage approval workflows, enforce risk controls, and disburse credit.</p>
+              <p className="text-sm text-slate-400">
+                Welcome, <span className="text-indigo-400 font-semibold">{user?.fullName || user?.username || 'Loan Officer'}</span> &bull; Assess creditworthiness and manage approval workflows
+              </p>
             </div>
           </div>
         </div>

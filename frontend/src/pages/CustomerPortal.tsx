@@ -25,8 +25,11 @@ import {
   NotificationItem
 } from '../types';
 import { accountApi, transactionApi, loanApi, notificationApi } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 export const CustomerPortal: React.FC = () => {
+  const { user } = useAuth();
+
   // Accounts State
   const [accounts, setAccounts] = useState<Account[]>([
     {
@@ -90,6 +93,45 @@ export const CustomerPortal: React.FC = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
 
+  // Select account appropriate for logged-in user
+  useEffect(() => {
+    if (user) {
+      const match = accounts.find(
+        (a) =>
+          (user.accountNumber && a.accountNumber === user.accountNumber) ||
+          (user.fullName && a.customerName?.toLowerCase() === user.fullName.toLowerCase()) ||
+          (user.id && a.customerId === user.id) ||
+          (user.username && a.customerName?.toLowerCase().includes(user.username.toLowerCase()))
+      );
+      if (match) {
+        setSelectedAccount(match);
+      } else if (user.roles?.includes('CUSTOMER')) {
+        const customAcc: Account = {
+          id: user.id || 99,
+          accountNumber: user.accountNumber || `ACC${1000 + (user.id || 1)}`,
+          customerId: user.id || 1,
+          customerName: user.fullName || user.username,
+          balance: 15000.0,
+          status: 'ACTIVE',
+          currency: 'USD',
+          createdAt: new Date().toISOString(),
+        };
+        setAccounts((prev) => [customAcc, ...prev.filter((a) => a.accountNumber !== customAcc.accountNumber)]);
+        setSelectedAccount(customAcc);
+      }
+    }
+  }, [user]);
+
+  // Adjust transfer target if it matches currently selected account
+  useEffect(() => {
+    if (transferTarget === selectedAccount.accountNumber) {
+      const other = accounts.find((a) => a.accountNumber !== selectedAccount.accountNumber);
+      if (other) {
+        setTransferTarget(other.accountNumber);
+      }
+    }
+  }, [selectedAccount.accountNumber, accounts, transferTarget]);
+
   // Load Initial Data
   useEffect(() => {
     fetchLiveAccounts();
@@ -109,7 +151,15 @@ export const CustomerPortal: React.FC = () => {
       const data = await accountApi.getAccounts(0, 10);
       if (data && data.content && data.content.length > 0) {
         setAccounts(data.content);
-        setSelectedAccount(data.content[0]);
+        const match = user
+          ? data.content.find(
+              (a) =>
+                (user.accountNumber && a.accountNumber === user.accountNumber) ||
+                (user.fullName && a.customerName?.toLowerCase() === user.fullName.toLowerCase()) ||
+                (user.id && a.customerId === user.id)
+            )
+          : null;
+        setSelectedAccount(match || data.content[0]);
       }
     } catch {
       console.log('Using fallback seeded account state');
@@ -178,7 +228,7 @@ export const CustomerPortal: React.FC = () => {
           userId: 1,
           type: 'TRANSACTION_SUCCESS',
           title: 'Deposit Successful',
-          message: 'USD 2,500.00 credited to ACC1001. Available balance updated.',
+          message: `USD 2,500.00 credited to ${selectedAccount.accountNumber}. Available balance updated.`,
           status: 'SENT',
           createdAt: new Date().toISOString(),
         },
@@ -380,6 +430,8 @@ export const CustomerPortal: React.FC = () => {
     }
   };
 
+  const currentPersonName = user?.fullName || (user?.username ? user.username : (selectedAccount.customerName || 'Customer'));
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
       {/* Top Welcome & Notification Bar */}
@@ -391,7 +443,7 @@ export const CustomerPortal: React.FC = () => {
           <div>
             <h1 className="text-2xl font-bold text-white tracking-tight">Personal Banking</h1>
             <p className="text-sm text-slate-400">
-              Welcome back, <span className="text-blue-400 font-semibold">{selectedAccount.customerName || 'John Doe'}</span> &bull; Account overview and daily transfers
+              Welcome back, <span className="text-blue-400 font-semibold">{currentPersonName}</span> &bull; Account overview and daily transfers
             </p>
           </div>
         </div>

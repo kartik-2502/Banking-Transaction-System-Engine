@@ -39,8 +39,10 @@ import {
   AccountRiskProfile
 } from '../types';
 import { analyticsApi, fraudApi, accountApi } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 export const AdminComplianceDashboard: React.FC = () => {
+  const { user } = useAuth();
   // KPI Overview State
   const [overview, setOverview] = useState<SystemOverviewAnalytics>({
     totalAccounts: 18,
@@ -282,7 +284,7 @@ export const AdminComplianceDashboard: React.FC = () => {
           <div>
             <h1 className="text-2xl font-bold text-white tracking-tight">Admin & Compliance Dashboard</h1>
             <p className="text-sm text-slate-400">
-              System Surveillance &bull; Fraud Prevention &bull; High-Volume Risk Underwriting &bull; Real-Time Aggregates
+              Logged in as <span className="text-purple-400 font-semibold">{user?.fullName || user?.username || 'Administrator'}</span> &bull; System Surveillance, Fraud Prevention & Audit
             </p>
           </div>
         </div>

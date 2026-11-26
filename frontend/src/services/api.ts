@@ -3,6 +3,7 @@ import {
   Account,
   AccountRiskProfile,
   ApiResponse,
+  AuthResponseData,
   DailyTransactionTrend,
   FailedTransactionSummary,
   FraudAlert,
@@ -28,12 +29,27 @@ export const apiClient = axios.create({
 
 // Attach JWT token from localStorage if present
 apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem('apex_token');
+  const token = localStorage.getItem('bank_token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
+
+// Auth API
+export const authApi = {
+  login: async (username: string, password: string): Promise<AuthResponseData> => {
+    const res = await apiClient.post<ApiResponse<AuthResponseData>>('/api/auth/login', {
+      username,
+      password,
+    });
+    return res.data.data;
+  },
+  getCurrentUser: async () => {
+    const res = await apiClient.get<ApiResponse<any>>('/api/auth/me');
+    return res.data.data;
+  },
+};
 
 // Accounts API
 export const accountApi = {

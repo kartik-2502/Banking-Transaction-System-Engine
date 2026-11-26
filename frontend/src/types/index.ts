@@ -4,7 +4,20 @@ export interface User {
   id: number;
   username: string;
   email: string;
+  fullName?: string;
   roles: UserRole[];
+  accountNumber?: string;
+}
+
+export interface AuthResponseData {
+  accessToken: string;
+  refreshToken?: string;
+  tokenType?: string;
+  expiresInMs?: number;
+  userId: number;
+  username: string;
+  email: string;
+  roles: string[];
 }
 
 export type AccountStatus = 'ACTIVE' | 'FROZEN' | 'CLOSED';

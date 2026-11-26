@@ -57,7 +57,7 @@ export const AdminComplianceDashboard: React.FC = () => {
     totalLoanOutstanding: 2410000.0,
     totalFraudAlerts: 12,
     pendingFraudAlerts: 3,
-    systemHealthStatus: 'OPTIMAL (ACID Guaranteed)',
+    systemHealthStatus: 'Systems Operational',
     generatedAt: new Date().toISOString()
   });
 
@@ -222,7 +222,7 @@ export const AdminComplianceDashboard: React.FC = () => {
         currentBalance: acc?.balance || 10000,
         dailyLimit: 100000,
         perTransactionLimit: 50000,
-        riskSummary: 'Standard retail tier. Transaction limits strictly verified with pessimistic locks.'
+        riskSummary: 'Standard retail tier. Account limits active and verified.'
       });
     }
   };

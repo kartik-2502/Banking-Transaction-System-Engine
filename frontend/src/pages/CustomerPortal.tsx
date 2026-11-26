@@ -389,9 +389,9 @@ export const CustomerPortal: React.FC = () => {
             <Wallet className="w-7 h-7" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-white tracking-tight">Customer Banking Portal</h1>
+            <h1 className="text-2xl font-bold text-white tracking-tight">Personal Banking</h1>
             <p className="text-sm text-slate-400">
-              Welcome back, <span className="text-blue-400 font-semibold">{selectedAccount.customerName || 'John Doe'}</span> &bull; High-Speed ACID Banking Engine
+              Welcome back, <span className="text-blue-400 font-semibold">{selectedAccount.customerName || 'John Doe'}</span> &bull; Account overview and daily transfers
             </p>
           </div>
         </div>
@@ -642,12 +642,12 @@ export const CustomerPortal: React.FC = () => {
 
                 <div className="p-3 rounded-xl bg-slate-900/40 border border-slate-700/50 text-[11px] text-slate-400 space-y-1">
                   <div className="flex justify-between">
-                    <span>Engine Locking:</span>
-                    <span className="text-emerald-400 font-mono font-semibold">Strict Key-Ordered (SELECT FOR UPDATE)</span>
+                    <span>Settlement Method:</span>
+                    <span className="text-emerald-400 font-medium">Instant Electronic Transfer</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Processing Latency:</span>
-                    <span className="text-slate-300 font-mono">&lt; 15ms</span>
+                    <span>Processing Time:</span>
+                    <span className="text-slate-300 font-medium">Immediate (Real-Time)</span>
                   </div>
                 </div>
 

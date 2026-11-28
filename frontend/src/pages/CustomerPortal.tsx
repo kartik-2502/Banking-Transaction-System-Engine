@@ -427,6 +427,16 @@ export const CustomerPortal: React.FC = () => {
       }
 
       try {
+        const myCustomerLoans = await loanApi.getMyLoans();
+        if (Array.isArray(myCustomerLoans)) {
+          setMyLoans(myCustomerLoans);
+          return;
+        }
+      } catch {
+        // Fallback to customerId lookup
+      }
+
+      try {
         const customerLoans = await loanApi.getCustomerLoans(selectedAccount.customerId || user?.id || 1);
         if (Array.isArray(customerLoans)) {
           setMyLoans(customerLoans);
@@ -1101,7 +1111,8 @@ export const CustomerPortal: React.FC = () => {
   };
 
   const currentPersonName = sanitizeDisplayName(user?.fullName || user?.username, selectedAccount.customerName);
-  const cardHolderName = sanitizeDisplayName(selectedAccount.customerName, currentPersonName);
+  const selectedAccountOwner = sanitizeDisplayName(selectedAccount.customerName, currentPersonName);
+  const cardHolderName = currentPersonName;
   const cardLastFour = (selectedAccount.accountNumber.replace(/\D/g, '').slice(-4) || '1001').padStart(4, '0');
 
   const renderTransactionLedgerCard = () => (
@@ -1385,7 +1396,11 @@ export const CustomerPortal: React.FC = () => {
           {/* Card Footer: Holder Name, Validity & Currency */}
           <div className="relative flex items-end justify-between gap-2 text-xs">
             <div>
-              <div className="text-[9px] uppercase tracking-widest text-[#EFE4D2]/65">Card Holder</div>
+              <div className="text-[9px] uppercase tracking-widest text-[#EFE4D2]/65">
+                {selectedAccountOwner.toLowerCase() === currentPersonName.toLowerCase()
+                  ? 'Card Holder'
+                  : `Logged In • A/C: ${selectedAccountOwner}`}
+              </div>
               <div className="font-semibold tracking-wide text-white uppercase">{cardHolderName}</div>
             </div>
             <div className="flex items-center gap-3">

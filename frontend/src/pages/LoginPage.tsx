@@ -50,8 +50,9 @@ export const LoginPage: React.FC = () => {
 
   const routeForUser = (userStr: string) => {
     const lowerUser = userStr.trim().toLowerCase();
+    if (lowerUser.includes('teller') || lowerUser === 'rohan_kulkarni' || lowerUser === 'daniel_brooks' || lowerUser === 'vikram_mehta') return '/teller';
     if (lowerUser.includes('loan') || lowerUser === 'ananya_verma') return '/loans';
-    if (lowerUser.includes('admin') || lowerUser.includes('analyst') || lowerUser === 'kavya_nair') return '/admin';
+    if (lowerUser.includes('admin') || lowerUser.includes('analyst') || lowerUser === 'kavya_nair' || lowerUser === 'elena_rostova') return '/admin';
     return '/customer';
   };
 
@@ -382,115 +383,88 @@ export const LoginPage: React.FC = () => {
               Quick Sign-In (Demo Access)
             </p>
             <div className="grid grid-cols-1 gap-2.5">
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('aarav_sharma', '/customer')}
-                disabled={isSubmitting}
-                className="w-full flex items-center justify-between p-2.5 rounded-xl bg-[#EBDEC8]/70 hover:bg-[#EFE4D2] border border-[#D9C7AB] hover:border-[#9A7C59] text-left transition-all group"
-              >
-                <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 rounded-lg bg-[#EFE2CE] border border-[#D9C7AB] shadow-md text-[#70411A] flex items-center justify-center">
-                    <UserIcon className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <div className="text-sm font-semibold text-[#1B130D] group-hover:text-[#70411A] transition-colors">
-                      Aarav Sharma
+              {[
+                {
+                  username: 'aarav_sharma',
+                  route: '/customer',
+                  name: 'Aarav Sharma',
+                  subtitle: 'Tier 1: Customer • ACC1001',
+                  icon: UserIcon,
+                  iconClass: 'bg-[#EFE2CE] border border-[#D9C7AB] shadow-md text-[#70411A]',
+                  hoverClass: 'group-hover:text-[#70411A]',
+                },
+                {
+                  username: 'rohan_kulkarni',
+                  route: '/teller',
+                  name: 'Rohan Kulkarni',
+                  subtitle: 'Tier 2: Branch Teller • BR001 Operations',
+                  icon: Briefcase,
+                  iconClass: 'bg-[#EFE2CE] border border-[#D9C7AB] shadow-md text-[#8E4322]',
+                  hoverClass: 'group-hover:text-[#8E4322]',
+                },
+                {
+                  username: 'ananya_verma',
+                  route: '/loans',
+                  name: 'Ananya Verma',
+                  subtitle: 'Tier 3: Loan Officer • Underwriting',
+                  icon: UserCheck,
+                  iconClass: 'bg-[#EFE2CE] border border-[#D9C7AB] shadow-md text-amber-800',
+                  hoverClass: 'group-hover:text-amber-900',
+                },
+                {
+                  username: 'vikram_mehta',
+                  route: '/teller',
+                  name: 'Vikram Mehta',
+                  subtitle: 'Tier 4: Bank Manager • Branch Approvals',
+                  icon: Briefcase,
+                  iconClass: 'bg-[#EFE2CE] border border-[#D9C7AB] shadow-md text-[#70411A]',
+                  hoverClass: 'group-hover:text-[#70411A]',
+                },
+                {
+                  username: 'kavya_nair',
+                  route: '/admin',
+                  name: 'Kavya Nair',
+                  subtitle: 'Tier 4: Risk Analyst • Governance',
+                  icon: Activity,
+                  iconClass: 'bg-[#EFE2CE] border border-[#D9C7AB] shadow-md text-[#4E3424]',
+                  hoverClass: 'group-hover:text-[#4E3424]',
+                },
+                {
+                  username: 'system_administrator',
+                  route: '/admin',
+                  name: 'System Administrator',
+                  subtitle: 'Tier 5: System Admin • Full Authority',
+                  icon: ShieldAlert,
+                  iconClass: 'bg-[#70411A] text-white',
+                  hoverClass: 'group-hover:text-[#70411A]',
+                },
+              ].map((account) => {
+                const Icon = account.icon;
+                return (
+                  <button
+                    key={account.username}
+                    type="button"
+                    onClick={() => handleQuickLogin(account.username, account.route)}
+                    disabled={isSubmitting}
+                    className="w-full flex items-center justify-between p-2.5 rounded-xl bg-[#EBDEC8]/70 hover:bg-[#EFE4D2] border border-[#D9C7AB] hover:border-[#9A7C59] text-left transition-all group"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${account.iconClass}`}>
+                        <Icon className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className={`text-sm font-semibold text-[#1B130D] ${account.hoverClass} transition-colors`}>
+                          {account.name}
+                        </div>
+                        <div className="text-xs text-[#3F3124]">{account.subtitle}</div>
+                      </div>
                     </div>
-                    <div className="text-xs text-[#3F3124]">Tier 1: Customer &bull; ACC1001</div>
-                  </div>
-                </div>
-                <span className="text-xs text-[#3F3124] group-hover:text-[#1B130D] transition-colors flex items-center gap-1 font-mono">
-                  Sign in &rarr;
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('rohan_kulkarni', '/customer')}
-                disabled={isSubmitting}
-                className="w-full flex items-center justify-between p-2.5 rounded-xl bg-[#EBDEC8]/70 hover:bg-[#EFE4D2] border border-[#D9C7AB] hover:border-[#9A7C59] text-left transition-all group"
-              >
-                <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 rounded-lg bg-[#EFE2CE] border border-[#D9C7AB] shadow-md text-[#8E4322] flex items-center justify-center">
-                    <Briefcase className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <div className="text-sm font-semibold text-[#1B130D] group-hover:text-[#8E4322] transition-colors">
-                      Rohan Kulkarni
-                    </div>
-                    <div className="text-xs text-[#3F3124]">Tier 2: Branch Teller &bull; Operations</div>
-                  </div>
-                </div>
-                <span className="text-xs text-[#3F3124] group-hover:text-[#1B130D] transition-colors flex items-center gap-1 font-mono">
-                  Sign in &rarr;
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('ananya_verma', '/loans')}
-                disabled={isSubmitting}
-                className="w-full flex items-center justify-between p-2.5 rounded-xl bg-[#EBDEC8]/70 hover:bg-[#EFE4D2] border border-[#D9C7AB] hover:border-[#9A7C59] text-left transition-all group"
-              >
-                <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 rounded-lg bg-[#EFE2CE] border border-[#D9C7AB] shadow-md text-amber-800 flex items-center justify-center">
-                    <UserCheck className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <div className="text-sm font-semibold text-[#1B130D] group-hover:text-amber-900 transition-colors">
-                      Ananya Verma
-                    </div>
-                    <div className="text-xs text-[#3F3124]">Tier 3: Loan Officer &bull; Underwriting</div>
-                  </div>
-                </div>
-                <span className="text-xs text-[#3F3124] group-hover:text-[#1B130D] transition-colors flex items-center gap-1 font-mono">
-                  Sign in &rarr;
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('kavya_nair', '/admin')}
-                disabled={isSubmitting}
-                className="w-full flex items-center justify-between p-2.5 rounded-xl bg-[#EBDEC8]/70 hover:bg-[#EFE4D2] border border-[#D9C7AB] hover:border-[#9A7C59] text-left transition-all group"
-              >
-                <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 rounded-lg bg-[#EFE2CE] border border-[#D9C7AB] shadow-md text-[#4E3424] flex items-center justify-center">
-                    <Activity className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <div className="text-sm font-semibold text-[#1B130D] group-hover:text-[#4E3424] transition-colors">
-                      Kavya Nair
-                    </div>
-                    <div className="text-xs text-[#3F3124]">Tier 4: Risk Analyst &bull; Governance</div>
-                  </div>
-                </div>
-                <span className="text-xs text-[#3F3124] group-hover:text-[#1B130D] transition-colors flex items-center gap-1 font-mono">
-                  Sign in &rarr;
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('system_administrator', '/admin')}
-                disabled={isSubmitting}
-                className="w-full flex items-center justify-between p-2.5 rounded-xl bg-[#EBDEC8]/70 hover:bg-[#EFE4D2] border border-[#D9C7AB] hover:border-[#9A7C59] text-left transition-all group"
-              >
-                <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 rounded-lg bg-[#70411A] text-white flex items-center justify-center">
-                    <ShieldAlert className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <div className="text-sm font-semibold text-[#1B130D] group-hover:text-[#70411A] transition-colors">
-                      System Administrator
-                    </div>
-                    <div className="text-xs text-[#3F3124]">Tier 5: System Admin &bull; Full Authority</div>
-                  </div>
-                </div>
-                <span className="text-xs text-[#3F3124] group-hover:text-[#1B130D] transition-colors flex items-center gap-1 font-mono">
-                  Sign in &rarr;
-                </span>
-              </button>
+                    <span className="text-xs text-[#3F3124] group-hover:text-[#1B130D] transition-colors flex items-center gap-1 font-mono">
+                      Sign in &rarr;
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>

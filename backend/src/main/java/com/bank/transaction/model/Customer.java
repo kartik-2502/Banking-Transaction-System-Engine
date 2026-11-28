@@ -36,6 +36,13 @@ public class Customer {
     @Column(length = 255)
     private String address;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "branch_id")
+    private Branch branch;
+
+    @Column(name = "kyc_status", nullable = false, length = 25)
+    private String kycStatus = "VERIFIED";
+
     @OneToMany(mappedBy = "customer", cascade = CascadeType.ALL, orphanRemoval = false, fetch = FetchType.LAZY)
     private List<Account> accounts = new ArrayList<>();
 
@@ -123,6 +130,22 @@ public class Customer {
 
     public void setAddress(String address) {
         this.address = address;
+    }
+
+    public Branch getBranch() {
+        return branch;
+    }
+
+    public void setBranch(Branch branch) {
+        this.branch = branch;
+    }
+
+    public String getKycStatus() {
+        return kycStatus;
+    }
+
+    public void setKycStatus(String kycStatus) {
+        this.kycStatus = kycStatus;
     }
 
     public List<Account> getAccounts() {

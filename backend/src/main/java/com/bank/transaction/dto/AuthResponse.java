@@ -12,6 +12,17 @@ public class AuthResponse {
     private String username;
     private String email;
     private List<String> roles;
+    private List<String> permissions;
+
+    // Teller / Staff metadata (if applicable)
+    private String employeeId;
+    private String tellerId;
+    private String officerId;
+    private String department;
+    private String branchCode;
+    private String branchName;
+    private String drawerCode;
+    private String shiftStatus;
 
     // Adaptive MFA metadata
     private boolean mfaRequired = false;
@@ -99,6 +110,25 @@ public class AuthResponse {
     public void setRoles(List<String> roles) {
         this.roles = roles;
     }
+
+    public List<String> getPermissions() { return permissions; }
+    public void setPermissions(List<String> permissions) { this.permissions = permissions; }
+    public String getEmployeeId() { return employeeId; }
+    public void setEmployeeId(String employeeId) { this.employeeId = employeeId; }
+    public String getTellerId() { return tellerId; }
+    public void setTellerId(String tellerId) { this.tellerId = tellerId; }
+    public String getOfficerId() { return officerId; }
+    public void setOfficerId(String officerId) { this.officerId = officerId; }
+    public String getDepartment() { return department; }
+    public void setDepartment(String department) { this.department = department; }
+    public String getBranchCode() { return branchCode; }
+    public void setBranchCode(String branchCode) { this.branchCode = branchCode; }
+    public String getBranchName() { return branchName; }
+    public void setBranchName(String branchName) { this.branchName = branchName; }
+    public String getDrawerCode() { return drawerCode; }
+    public void setDrawerCode(String drawerCode) { this.drawerCode = drawerCode; }
+    public String getShiftStatus() { return shiftStatus; }
+    public void setShiftStatus(String shiftStatus) { this.shiftStatus = shiftStatus; }
 
     public boolean isMfaRequired() { return mfaRequired; }
     public void setMfaRequired(boolean mfaRequired) { this.mfaRequired = mfaRequired; }

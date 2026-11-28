@@ -105,6 +105,8 @@ public class LoanServiceImpl implements LoanService {
         loan.setTotalPayable(totalPayable);
         loan.setOutstandingBalance(totalPayable);
         loan.setDocumentUrls(request.getDocumentUrls());
+        loan.setBranch(customer.getBranch() != null ? customer.getBranch() : account.getBranch());
+        loan.setCreatedBy(username);
 
         boolean isHighValue = request.getAmount().compareTo(HIGH_VALUE_THRESHOLD) > 0;
         loan.setRequiresAdminApproval(isHighValue);
@@ -392,6 +394,19 @@ public class LoanServiceImpl implements LoanService {
     @Transactional(readOnly = true)
     public List<LoanResponse> getCustomerLoans(Long customerId) {
         return loanRepository.findByCustomerIdOrderByCreatedAtDesc(customerId)
+                .stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<LoanResponse> getMyLoans(String username) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new CustomerNotFoundException("User not found: " + username));
+        Customer customer = customerRepository.findByUserId(user.getId())
+                .orElseThrow(() -> new CustomerNotFoundException("Customer profile not found for user: " + username));
+        return loanRepository.findByCustomerIdOrderByCreatedAtDesc(customer.getId())
                 .stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());

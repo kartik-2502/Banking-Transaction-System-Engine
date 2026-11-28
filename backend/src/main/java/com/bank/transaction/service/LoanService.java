@@ -16,6 +16,7 @@ public interface LoanService {
     LoanResponse getLoanById(String loanId);
     Page<LoanResponse> getLoans(LoanStatus status, String searchTerm, Pageable pageable);
     List<LoanResponse> getCustomerLoans(Long customerId);
+    List<LoanResponse> getMyLoans(String username);
     LoanOfficerDashboardStats getDashboardStats();
     List<LoanRepaymentScheduleResponse> getRepaymentSchedule(String loanId);
     List<LoanStatusHistoryResponse> getLoanStatusHistory(String loanId);

@@ -82,6 +82,40 @@ public class Loan {
     @Column(name = "disbursed_at")
     private OffsetDateTime disbursedAt;
 
+    @Column(name = "loan_category", nullable = false, length = 30)
+    private String loanCategory = "PERSONAL";
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "branch_id")
+    private Branch branch;
+
+    @Column(name = "assigned_officer", length = 50)
+    private String assignedOfficer;
+
+    @Column(name = "employment_type", nullable = false, length = 40)
+    private String employmentType = "SALARIED";
+
+    @Column(name = "recommended_amount", precision = 15, scale = 2)
+    private BigDecimal recommendedAmount;
+
+    @Column(name = "recommended_interest_rate", precision = 5, scale = 2)
+    private BigDecimal recommendedInterestRate;
+
+    @Column(name = "recommended_term_months")
+    private Integer recommendedTermMonths;
+
+    @Column(name = "collateral_type", length = 60)
+    private String collateralType;
+
+    @Column(name = "collateral_value", precision = 15, scale = 2)
+    private BigDecimal collateralValue;
+
+    @Column(name = "ltv_ratio", precision = 5, scale = 2)
+    private BigDecimal ltvRatio;
+
+    @Column(name = "created_by", length = 50)
+    private String createdBy;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt = OffsetDateTime.now();
 
@@ -302,6 +336,29 @@ public class Loan {
     public OffsetDateTime getUpdatedAt() {
         return updatedAt;
     }
+
+    public String getLoanCategory() { return loanCategory; }
+    public void setLoanCategory(String loanCategory) { this.loanCategory = loanCategory; }
+    public Branch getBranch() { return branch; }
+    public void setBranch(Branch branch) { this.branch = branch; }
+    public String getAssignedOfficer() { return assignedOfficer; }
+    public void setAssignedOfficer(String assignedOfficer) { this.assignedOfficer = assignedOfficer; }
+    public String getEmploymentType() { return employmentType; }
+    public void setEmploymentType(String employmentType) { this.employmentType = employmentType; }
+    public BigDecimal getRecommendedAmount() { return recommendedAmount; }
+    public void setRecommendedAmount(BigDecimal recommendedAmount) { this.recommendedAmount = recommendedAmount; }
+    public BigDecimal getRecommendedInterestRate() { return recommendedInterestRate; }
+    public void setRecommendedInterestRate(BigDecimal recommendedInterestRate) { this.recommendedInterestRate = recommendedInterestRate; }
+    public Integer getRecommendedTermMonths() { return recommendedTermMonths; }
+    public void setRecommendedTermMonths(Integer recommendedTermMonths) { this.recommendedTermMonths = recommendedTermMonths; }
+    public String getCollateralType() { return collateralType; }
+    public void setCollateralType(String collateralType) { this.collateralType = collateralType; }
+    public BigDecimal getCollateralValue() { return collateralValue; }
+    public void setCollateralValue(BigDecimal collateralValue) { this.collateralValue = collateralValue; }
+    public BigDecimal getLtvRatio() { return ltvRatio; }
+    public void setLtvRatio(BigDecimal ltvRatio) { this.ltvRatio = ltvRatio; }
+    public String getCreatedBy() { return createdBy; }
+    public void setCreatedBy(String createdBy) { this.createdBy = createdBy; }
 
     @Override
     public boolean equals(Object o) {

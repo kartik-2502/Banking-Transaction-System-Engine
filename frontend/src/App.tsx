@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
 import {
   Landmark,
@@ -27,15 +27,23 @@ import {
   X,
   Lock,
   CheckCircle2,
-  XCircle
+  XCircle,
+  Bell,
+  Banknote,
+  ChevronDown,
+  PanelLeftClose,
+  PanelLeftOpen
 } from 'lucide-react';
 import CustomerPortal from './pages/CustomerPortal';
-import LoanOfficerDashboard from './pages/LoanOfficerDashboard';
+import TellerPortal, { TELLER_TABS } from './pages/TellerPortal';
+import LoanOfficerDashboard, { LOAN_OFFICER_TABS } from './pages/LoanOfficerDashboard';
 import AdminComplianceDashboard from './pages/AdminComplianceDashboard';
 import LoginPage from './pages/LoginPage';
 import { MfaSecurityCenter } from './components/MfaSecurityCenter';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { getPermissions } from './utils/rbac';
+import { getPermissions, hasPermission } from './utils/rbac';
+import { notificationApi } from './services/api';
+import { NotificationItem } from './types';
 
 const HomeLanding: React.FC = () => {
   const { user } = useAuth();
@@ -65,6 +73,28 @@ const HomeLanding: React.FC = () => {
 
         {/* Primary Navigation Cards (Upper Tiles - Dark Beige) */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5 pt-4 text-left">
+          {perms.canAccessTellerPortal && (
+            <Link
+              to="/teller?tab=dashboard"
+              className="group p-6 rounded-2xl bg-[#E9D9C0] hover:bg-[#E2CEAF] border border-[#CEB896] hover:border-[#70411A] transition-all duration-200 shadow-md flex flex-col justify-between"
+            >
+              <div>
+                <div className="w-12 h-12 rounded-xl bg-white/85 border border-[#CEB896] text-[#70411A] flex items-center justify-center mb-4 group-hover:scale-105 transition-transform shadow-sm">
+                  <Banknote className="w-6 h-6" />
+                </div>
+                <h2 className="text-lg font-bold text-[#1B130D] group-hover:text-[#542F11] transition-colors">
+                  Teller Operations Workbench
+                </h2>
+                <p className="text-sm text-[#3F3124] mt-2 leading-normal font-medium">
+                  Process branch cash deposits &amp; withdrawals, drawer reconciliation, cheques, transfers, complaints &amp; daily EOD reports.
+                </p>
+              </div>
+              <div className="mt-6 flex items-center text-xs font-bold text-[#542F11] group-hover:translate-x-1 transition-transform">
+                Open workbench <ChevronRight className="w-4 h-4 ml-1" />
+              </div>
+            </Link>
+          )}
+
           {perms.canAccessCustomerPortal && (
             <Link
               to="/customer"
@@ -241,6 +271,8 @@ const HomeLanding: React.FC = () => {
 interface SidebarNavigationProps {
   mobileOpen: boolean;
   onCloseMobile: () => void;
+  collapsed: boolean;
+  onToggleCollapse: () => void;
 }
 
 const AccessRestricted: React.FC<{ requiredTier: string }> = ({ requiredTier }) => {
@@ -268,13 +300,38 @@ const AccessRestricted: React.FC<{ requiredTier: string }> = ({ requiredTier }) 
   );
 };
 
-const SidebarNavigation: React.FC<SidebarNavigationProps> = ({ mobileOpen, onCloseMobile }) => {
+const SidebarNavigation: React.FC<SidebarNavigationProps> = ({
+  mobileOpen,
+  onCloseMobile,
+  collapsed,
+  onToggleCollapse,
+}) => {
   const location = useLocation();
   const { user, logout } = useAuth();
   const perms = getPermissions(user);
+  const [tellerGroupOpen, setTellerGroupOpen] = useState(true);
+  const [loanGroupOpen, setLoanGroupOpen] = useState(true);
 
   const isActive = (path: string) => location.pathname === path;
-  const currentCustomerSection = new URLSearchParams(location.search).get('section') || 'transfers';
+  const searchParams = new URLSearchParams(location.search);
+  const currentCustomerSection = searchParams.get('section') || 'transfers';
+  const currentTellerTab = searchParams.get('tab') || 'dashboard';
+  const currentLoanTab = searchParams.get('tab') || 'dashboard';
+
+  const permittedTellerTabs = TELLER_TABS.filter(
+    (t) =>
+      hasPermission(user, t.permission) ||
+      (t.id === 'service-requests' && hasPermission(user, 'APPROVAL_MANAGE')) ||
+      (t.id === 'cash' && hasPermission(user, 'CASH_RECONCILIATION_VERIFY'))
+  );
+
+  const permittedLoanTabs = LOAN_OFFICER_TABS.filter(
+    (t) =>
+      hasPermission(user, t.permission) ||
+      (t.id === 'processing' && hasPermission(user, 'LOAN_APPLICATION_REVIEW')) ||
+      (t.id === 'approvals' && hasPermission(user, 'LOAN_FINAL_APPROVE')) ||
+      (t.id === 'disbursement' && hasPermission(user, 'LOAN_DISBURSEMENT_APPROVE'))
+  );
 
   const customerServiceGroups = [
     {
@@ -357,139 +414,382 @@ const SidebarNavigation: React.FC<SidebarNavigationProps> = ({ mobileOpen, onClo
     },
   ].filter((item) => item.allowed);
 
-  const sidebarContent = (
-    <div className="flex flex-col h-full bg-[#261D15] border-r border-[#4E3424] w-64 text-[#EFE4D2] shadow-xl">
-      {/* Bank Brand Header */}
-      <div className="h-16 px-5 border-b border-white/10 flex items-center justify-between shrink-0">
-        <Link to="/" onClick={onCloseMobile} className="flex items-center space-x-3 group">
-          <div className="w-9 h-9 rounded-xl bg-[#D9A86C] flex items-center justify-center font-bold text-lg text-[#1B130D] shadow-md group-hover:bg-[#EFE2CE] transition-colors">
-            <Landmark className="w-5 h-5" />
-          </div>
-          <span className="font-bold text-xl tracking-tight text-white">Bank</span>
-        </Link>
-        <button
-          onClick={onCloseMobile}
-          className="md:hidden p-1.5 rounded-lg text-[#EFE4D2]/80 hover:text-white hover:bg-[#362A1F]"
-          aria-label="Close navigation menu"
-        >
-          <X className="w-5 h-5" />
-        </button>
-      </div>
-
-      {/* Left Sidebar Navigation Options Under Bank (RBAC-filtered) */}
-      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-        <div className="px-3 pb-1 flex items-center justify-between text-[11px] font-semibold uppercase tracking-wider text-[#EFE4D2]/60">
-          <span>Navigation</span>
-          <span className="text-[10px] font-mono text-[#D9A86C] font-bold">Tier {perms.tierLevel}</span>
-        </div>
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          const active =
-            item.to === '/customer'
-              ? location.pathname === '/customer' && currentCustomerSection === 'transfers'
-              : isActive(item.to);
-          return (
-            <Link
-              key={item.to}
-              to={item.to}
+  const renderSidebar = (isMobileDrawer: boolean) => {
+    const isCollapsed = !isMobileDrawer && collapsed;
+    return (
+      <div
+        className={`flex flex-col h-full bg-[#261D15] border-r border-[#4E3424] text-[#EFE4D2] shadow-xl transition-all duration-200 ${
+          isCollapsed ? 'w-20' : 'w-64'
+        }`}
+      >
+        {/* Bank Brand Header */}
+        <div className="h-16 px-4 border-b border-white/10 flex items-center justify-between shrink-0">
+          <Link to="/" onClick={onCloseMobile} className="flex items-center space-x-3 group min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-[#D9A86C] flex items-center justify-center font-bold text-lg text-[#1B130D] shadow-md group-hover:bg-[#EFE2CE] transition-colors shrink-0">
+              <Landmark className="w-5 h-5" />
+            </div>
+            {!isCollapsed && <span className="font-bold text-xl tracking-tight text-white truncate">Bank</span>}
+          </Link>
+          {isMobileDrawer ? (
+            <button
               onClick={onCloseMobile}
-              className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-colors ${
-                active
-                  ? item.activeClass
-                  : 'text-[#EFE4D2]/85 hover:text-white hover:bg-[#362A1F] border border-transparent'
-              }`}
+              className="p-1.5 rounded-lg text-[#EFE4D2]/80 hover:text-white hover:bg-[#362A1F]"
+              aria-label="Close navigation menu"
             >
-              <Icon className="w-4 h-4 shrink-0" />
-              <span>{item.label}</span>
-            </Link>
-          );
-        })}
-
-        {perms.canAccessCustomerPortal &&
-          customerServiceGroups.map((group) => (
-            <div key={group.title} className="pt-3 space-y-1">
-              <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-[#D9A86C]/80">
-                {group.title}
-              </div>
-              {group.items.map((svc) => {
-                const SvcIcon = svc.icon;
-                const svcActive =
-                  location.pathname === '/customer' && currentCustomerSection === svc.section;
-                return (
-                  <Link
-                    key={svc.section}
-                    to={`/customer?section=${svc.section}`}
-                    onClick={onCloseMobile}
-                    className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-colors ${
-                      svcActive
-                        ? 'bg-[#EFE2CE] text-[#1B130D] border border-[#D9A86C]/70 font-bold shadow-md'
-                        : 'text-[#EFE4D2]/85 hover:text-white hover:bg-[#362A1F] border border-transparent'
-                    }`}
-                  >
-                    <SvcIcon className="w-4 h-4 shrink-0" />
-                    <span className="truncate">{svc.label}</span>
-                  </Link>
-                );
-              })}
-            </div>
-          ))}
-      </nav>
-
-      {/* User Profile & Sign Out */}
-      <div className="p-3 border-t border-white/10 space-y-2.5 shrink-0">
-        <div className="flex items-center space-x-2.5 bg-[#362A1F] border border-white/10 px-3 py-2 rounded-xl">
-          <div className="w-8 h-8 rounded-lg bg-[#D9A86C] text-[#1B130D] font-bold text-xs flex items-center justify-center shrink-0">
-            {getUserInitials()}
-          </div>
-          <div className="text-left text-xs min-w-0">
-            <div className="font-semibold text-white leading-tight truncate">
-              {user?.fullName || user?.username || 'User'}
-            </div>
-            <div className="text-[#EFE4D2]/75 text-[10px] uppercase font-mono truncate">
-              {perms.designationTitle}
-            </div>
-            <div className="text-[#D9A86C] text-[9px] font-mono truncate font-semibold">
-              {perms.tierLabel}
-            </div>
-          </div>
+              <X className="w-5 h-5" />
+            </button>
+          ) : (
+            <button
+              onClick={onToggleCollapse}
+              className="hidden md:inline-flex p-1.5 rounded-lg text-[#EFE4D2]/80 hover:text-white hover:bg-[#362A1F]"
+              title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            >
+              {isCollapsed ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
+            </button>
+          )}
         </div>
 
-        <button
-          onClick={logout}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-[#EFE4D2] hover:text-white bg-white/10 hover:bg-rose-700 border border-white/15 hover:border-rose-500 transition-colors"
-          title="Sign Out"
-        >
-          <LogOut className="w-4 h-4" />
-          <span>Sign Out</span>
-        </button>
+        {/* Left Sidebar Navigation Options Under Bank (RBAC-filtered) */}
+        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+          {!isCollapsed && (
+            <div className="px-3 pb-1 flex items-center justify-between text-[11px] font-semibold uppercase tracking-wider text-[#EFE4D2]/60">
+              <span>Navigation</span>
+              <span className="text-[10px] font-mono text-[#D9A86C] font-bold">Tier {perms.tierLevel}</span>
+            </div>
+          )}
+
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const active =
+              item.to === '/customer'
+                ? location.pathname === '/customer' && currentCustomerSection === 'transfers'
+                : isActive(item.to);
+            return (
+              <Link
+                key={item.to}
+                to={item.to}
+                title={isCollapsed ? item.label : undefined}
+                onClick={onCloseMobile}
+                className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-colors ${
+                  isCollapsed ? 'justify-center' : ''
+                } ${
+                  active
+                    ? item.activeClass
+                    : 'text-[#EFE4D2]/85 hover:text-white hover:bg-[#362A1F] border border-transparent'
+                }`}
+              >
+                <Icon className="w-4 h-4 shrink-0" />
+                {!isCollapsed && <span className="truncate">{item.label}</span>}
+              </Link>
+            );
+          })}
+
+          {/* Dedicated Teller Operations Navigation Group */}
+          {perms.canAccessTellerPortal && (
+            <div className="pt-3 space-y-1">
+              {!isCollapsed ? (
+                <button
+                  type="button"
+                  onClick={() => setTellerGroupOpen((o) => !o)}
+                  className="w-full px-3 pb-1 flex items-center justify-between text-[10px] font-semibold uppercase tracking-wider text-[#D9A86C]/90 hover:text-[#D9A86C]"
+                >
+                  <span>Teller Operations</span>
+                  <ChevronDown className={`w-3.5 h-3.5 transition-transform ${tellerGroupOpen ? '' : '-rotate-90'}`} />
+                </button>
+              ) : (
+                <div className="border-t border-white/10 my-2" />
+              )}
+
+              {(isCollapsed || tellerGroupOpen) &&
+                permittedTellerTabs.map((tab) => {
+                  const TabIcon = tab.icon;
+                  const tabActive = location.pathname === '/teller' && currentTellerTab === tab.id;
+                  return (
+                    <Link
+                      key={tab.id}
+                      to={`/teller?tab=${tab.id}`}
+                      title={isCollapsed ? tab.label : undefined}
+                      onClick={onCloseMobile}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-colors ${
+                        isCollapsed ? 'justify-center' : ''
+                      } ${
+                        tabActive
+                          ? 'bg-[#EFE2CE] text-[#1B130D] border border-[#D9A86C]/70 font-bold shadow-md'
+                          : 'text-[#EFE4D2]/85 hover:text-white hover:bg-[#362A1F] border border-transparent'
+                      }`}
+                    >
+                      <TabIcon className="w-4 h-4 shrink-0" />
+                      {!isCollapsed && <span className="truncate">{tab.label}</span>}
+                    </Link>
+                  );
+                })}
+            </div>
+          )}
+
+          {/* Dedicated Loan Operations Navigation Group */}
+          {perms.canAccessLoanWorkbench && (
+            <div className="pt-3 space-y-1">
+              {!isCollapsed ? (
+                <button
+                  type="button"
+                  onClick={() => setLoanGroupOpen((o) => !o)}
+                  className="w-full px-3 pb-1 flex items-center justify-between text-[10px] font-semibold uppercase tracking-wider text-[#D9A86C]/90 hover:text-[#D9A86C]"
+                >
+                  <span>Loan Operations</span>
+                  <ChevronDown className={`w-3.5 h-3.5 transition-transform ${loanGroupOpen ? '' : '-rotate-90'}`} />
+                </button>
+              ) : (
+                <div className="border-t border-white/10 my-2" />
+              )}
+
+              {(isCollapsed || loanGroupOpen) &&
+                permittedLoanTabs.map((tab) => {
+                  const TabIcon = tab.icon;
+                  const tabActive = location.pathname === '/loans' && currentLoanTab === tab.id;
+                  return (
+                    <Link
+                      key={tab.id}
+                      to={`/loans?tab=${tab.id}`}
+                      title={isCollapsed ? tab.label : undefined}
+                      onClick={onCloseMobile}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-colors ${
+                        isCollapsed ? 'justify-center' : ''
+                      } ${
+                        tabActive
+                          ? 'bg-[#EFE2CE] text-[#1B130D] border border-[#D9A86C]/70 font-bold shadow-md'
+                          : 'text-[#EFE4D2]/85 hover:text-white hover:bg-[#362A1F] border border-transparent'
+                      }`}
+                    >
+                      <TabIcon className="w-4 h-4 shrink-0" />
+                      {!isCollapsed && <span className="truncate">{tab.label}</span>}
+                    </Link>
+                  );
+                })}
+            </div>
+          )}
+
+          {/* Customer Self-Service Groups (Hidden for Teller / Loan Officer / Bank Manager / Auditor) */}
+          {perms.canAccessCustomerPortal &&
+            !isCollapsed &&
+            customerServiceGroups.map((group) => (
+              <div key={group.title} className="pt-3 space-y-1">
+                <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-[#D9A86C]/80">
+                  {group.title}
+                </div>
+                {group.items.map((svc) => {
+                  const SvcIcon = svc.icon;
+                  const svcActive =
+                    location.pathname === '/customer' && currentCustomerSection === svc.section;
+                  return (
+                    <Link
+                      key={svc.section}
+                      to={`/customer?section=${svc.section}`}
+                      onClick={onCloseMobile}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-colors ${
+                        svcActive
+                          ? 'bg-[#EFE2CE] text-[#1B130D] border border-[#D9A86C]/70 font-bold shadow-md'
+                          : 'text-[#EFE4D2]/85 hover:text-white hover:bg-[#362A1F] border border-transparent'
+                      }`}
+                    >
+                      <SvcIcon className="w-4 h-4 shrink-0" />
+                      <span className="truncate">{svc.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            ))}
+        </nav>
+
+        {/* User Profile & Sign Out */}
+        <div className="p-3 border-t border-white/10 space-y-2.5 shrink-0">
+          <div className={`flex items-center bg-[#362A1F] border border-white/10 px-3 py-2 rounded-xl ${isCollapsed ? 'justify-center' : 'space-x-2.5'}`}>
+            <div className="w-8 h-8 rounded-lg bg-[#D9A86C] text-[#1B130D] font-bold text-xs flex items-center justify-center shrink-0">
+              {getUserInitials()}
+            </div>
+            {!isCollapsed && (
+              <div className="text-left text-xs min-w-0">
+                <div className="font-semibold text-white leading-tight truncate">
+                  {user?.fullName || user?.username || 'User'}
+                </div>
+                <div className="text-[#EFE4D2]/75 text-[10px] uppercase font-mono truncate">
+                  {perms.designationTitle}
+                </div>
+                <div className="text-[#D9A86C] text-[9px] font-mono truncate font-semibold">
+                  {user?.branchCode ? `${user.branchCode} • ${user.drawerCode || perms.tierLabel}` : perms.tierLabel}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={logout}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-[#EFE4D2] hover:text-white bg-white/10 hover:bg-rose-700 border border-white/15 hover:border-rose-500 transition-colors"
+            title="Sign Out"
+          >
+            <LogOut className="w-4 h-4 shrink-0" />
+            {!isCollapsed && <span>Sign Out</span>}
+          </button>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <>
-      {/* Desktop Sticky Left Sidebar */}
       <aside className="hidden md:block shrink-0 sticky top-0 h-screen z-40">
-        {sidebarContent}
+        {renderSidebar(false)}
       </aside>
 
-      {/* Mobile Drawer Overlay */}
       {mobileOpen && (
         <div className="fixed inset-0 z-50 md:hidden flex">
           <div
             className="fixed inset-0 bg-[#1B130D]/40 backdrop-blur-sm"
             onClick={onCloseMobile}
           />
-          <aside className="relative z-10 h-full">{sidebarContent}</aside>
+          <aside className="relative z-10 h-full">{renderSidebar(true)}</aside>
         </div>
       )}
     </>
   );
 };
 
+const TopHeaderBar: React.FC<{ onOpenMobile: () => void }> = ({ onOpenMobile }) => {
+  const { user } = useAuth();
+  const perms = getPermissions(user);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [openPopover, setOpenPopover] = useState(false);
+
+  const loadNotifications = async () => {
+    try {
+      const [count, listRes] = await Promise.all([
+        notificationApi.getUnreadCount(),
+        notificationApi.getMyNotifications(0, 8),
+      ]);
+      setUnreadCount(count || 0);
+      setNotifications(listRes.content || []);
+    } catch {
+      // ignore background notification errors
+    }
+  };
+
+  useEffect(() => {
+    loadNotifications();
+  }, [user?.username]);
+
+  const handleMarkRead = async (id: number) => {
+    try {
+      await notificationApi.markAsRead(id);
+      await loadNotifications();
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const handleMarkAll = async () => {
+    try {
+      await notificationApi.markAllAsRead();
+      await loadNotifications();
+    } catch {
+      /* ignore */
+    }
+  };
+
+  return (
+    <header className="border-b border-[#D9C7AB] bg-[#EFE2CE]/90 backdrop-blur sticky top-0 z-30 px-4 sm:px-6 h-14 flex items-center justify-between">
+      <div className="flex items-center gap-3">
+        <button
+          onClick={onOpenMobile}
+          className="md:hidden p-2 rounded-lg text-[#1B130D] hover:bg-[#E9D9C0]"
+          aria-label="Open navigation menu"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+        <div className="text-xs sm:text-sm font-semibold text-[#1B130D] flex items-center gap-2">
+          <span>{user?.fullName || user?.username}</span>
+          <span className="hidden sm:inline px-2 py-0.5 rounded-full bg-[#261D15] text-[#D9A86C] font-mono text-[11px]">
+            {perms.designationTitle}
+          </span>
+          {user?.branchCode && (
+            <span className="hidden md:inline px-2 py-0.5 rounded-full bg-[#E9D9C0] border border-[#CEB896] text-[#3F3124] font-mono text-[11px]">
+              {user.branchCode}{user.drawerCode ? ` • ${user.drawerCode}` : ''}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Header Notifications Bell */}
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => {
+            setOpenPopover((o) => !o);
+            if (!openPopover) loadNotifications();
+          }}
+          className="relative p-2 rounded-xl bg-[#F3E7D4] border border-[#D9C7AB] text-[#1B130D] hover:bg-[#E9D9C0]"
+          aria-label="Notifications"
+        >
+          <Bell className="w-4 h-4" />
+          {unreadCount > 0 && (
+            <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-[#8E4322] text-white text-[10px] font-bold flex items-center justify-center">
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
+          )}
+        </button>
+
+        {openPopover && (
+          <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl bg-[#F3E7D4] border border-[#CEB896] shadow-2xl p-4 space-y-3 z-50">
+            <div className="flex items-center justify-between border-b border-[#D9C7AB] pb-2">
+              <span className="text-sm font-bold text-[#1B130D]">Branch &amp; Security Alerts</span>
+              <button
+                type="button"
+                onClick={handleMarkAll}
+                className="text-xs font-semibold text-[#8E4322] hover:underline"
+              >
+                Mark all read
+              </button>
+            </div>
+            <div className="max-h-72 overflow-y-auto space-y-2">
+              {notifications.length === 0 ? (
+                <p className="text-xs text-[#3F3124] py-4 text-center">No notifications yet.</p>
+              ) : (
+                notifications.map((n) => (
+                  <div
+                    key={n.id}
+                    className={`p-2.5 rounded-xl border text-xs ${
+                      n.status === 'READ'
+                        ? 'bg-[#EFE2CE]/50 border-[#D9C7AB]/60 text-[#3F3124]'
+                        : 'bg-[#EFE2CE] border-[#70411A]/40 text-[#1B130D]'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="font-bold">{n.title}</span>
+                      {n.status !== 'READ' && (
+                        <button
+                          type="button"
+                          onClick={() => handleMarkRead(n.id)}
+                          className="text-[10px] font-semibold text-[#70411A] hover:underline shrink-0"
+                        >
+                          Read
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-[11px] mt-0.5">{n.message}</p>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </header>
+  );
+};
+
 const AuthenticatedApp: React.FC = () => {
   const { user, isAuthenticated, isLoading } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const perms = getPermissions(user);
 
   if (isLoading) {
@@ -517,30 +817,29 @@ const AuthenticatedApp: React.FC = () => {
       <SidebarNavigation
         mobileOpen={mobileMenuOpen}
         onCloseMobile={() => setMobileMenuOpen(false)}
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={() => setSidebarCollapsed((c) => !c)}
       />
 
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Mobile Top Bar */}
-        <header className="md:hidden border-b border-[#4E3424] bg-[#261D15] sticky top-0 z-30 px-4 h-14 flex items-center justify-between text-white">
-          <Link to="/" className="flex items-center space-x-2.5">
-            <div className="w-8 h-8 rounded-lg bg-[#D9A86C] flex items-center justify-center text-[#1B130D]">
-              <Landmark className="w-4 h-4" />
-            </div>
-            <span className="font-bold text-lg tracking-tight text-white">Bank</span>
-          </Link>
-          <button
-            onClick={() => setMobileMenuOpen(true)}
-            className="p-2 rounded-lg text-[#EFE4D2] hover:text-white hover:bg-[#362A1F]"
-            aria-label="Open navigation menu"
-          >
-            <Menu className="w-5 h-5" />
-          </button>
-        </header>
+        <TopHeaderBar onOpenMobile={() => setMobileMenuOpen(true)} />
 
         <div className="flex-1">
           <Routes>
             <Route path="/" element={<HomeLanding />} />
             <Route path="/customer" element={<CustomerPortal />} />
+            <Route
+              path="/teller"
+              element={
+                perms.canAccessTellerPortal ? (
+                  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+                    <TellerPortal />
+                  </div>
+                ) : (
+                  <AccessRestricted requiredTier="Branch Teller, Bank Manager, Auditor, or Admin" />
+                )
+              }
+            />
             <Route path="/security" element={<MfaSecurityCenter />} />
             <Route
               path="/loans"

@@ -84,20 +84,26 @@ The orchestration will automatically provision:
 ### 2. Access Web Applications
 
 * **Customer Banking Portal:** `http://localhost:3000/customer`
+* **Bank Teller Workbench:** `http://localhost:3000/teller`
 * **Loan Officer Workbench:** `http://localhost:3000/loans`
 * **Admin & Compliance Dashboard:** `http://localhost:3000/admin`
+* **Security & MFA Center:** `http://localhost:3000/security`
 * **Backend Health & Metrics:** `http://localhost:8080/actuator/health`
 
 ### Default Demo Accounts (`firstname_lastname`, Password: `password`)
 
-| Username | Full Name | Role |
-| :--- | :--- | :--- |
-| `aarav_sharma` | Aarav Sharma | `CUSTOMER` (`ACC1001`) |
-| `priya_patel` | Priya Patel | `CUSTOMER` (`ACC2004`) |
-| `rohan_kulkarni` | Rohan Kulkarni | `TELLER` |
-| `ananya_verma` | Ananya Verma | `LOAN_OFFICER` |
-| `kavya_nair` | Kavya Nair | `RISK_ANALYST` |
-| `system_administrator` | System Administrator | `ADMIN` |
+| Username | Full Name | Role | Branch / Scope |
+| :--- | :--- | :--- | :--- |
+| `aarav_sharma` | Aarav Sharma | `CUSTOMER` (`ACC1001`) | `BR001` |
+| `priya_patel` | Priya Patel | `CUSTOMER` (`ACC2004`) | `BR001` |
+| `rohan_kulkarni` | Rohan Kulkarni | `TELLER` (`EMP2041` / `TLR101`) | `BR001` • `DRW-BR001-01` |
+| `daniel_brooks` | Daniel Brooks | `TELLER` (`EMP2042` / `TLR201`) | `BR002` • `DRW-BR002-01` |
+| `vikram_mehta` | Vikram Mehta | `BANK_MANAGER` (`EMP3010` / `MGR101`) | `BR001` Supervisor |
+| `ananya_verma` | Ananya Verma | `LOAN_OFFICER` (`EMP3041` / `LO301`) | `BR001` Credit Underwriting |
+| `meera_iyer` | Meera Iyer | `LOAN_OFFICER` (`EMP3042` / `LO302`) | `BR002` Credit Underwriting |
+| `kavya_nair` | Kavya Nair | `RISK_ANALYST` | Compliance |
+| `elena_rostova` | Elena Rostova | `AUDITOR` | Read-Only Audit |
+| `system_administrator` | System Administrator | `ADMIN` | Global |
 
 ---
 
@@ -188,6 +194,50 @@ Results executed against PostgreSQL 18.3 under high multi-threaded saturation:
 | **Analytics** | `GET` | `/api/analytics/top-accounts` | Top accounts by settled turnover volume |
 | **Fraud** | `GET` | `/api/fraud/alerts` | Live queue of fraud surveillance alerts |
 | **Notifications**| `GET`| `/api/notifications` | User notifications with unread tracking |
+| **Teller** | `GET` | `/api/teller/dashboard` | Real-time branch KPI summary, drawer cash balance & recent queue metrics |
+| **Teller** | `GET` | `/api/teller/customers` | Branch-scoped customer search with KYC filter & masked contact view |
+| **Teller** | `PUT` | `/api/teller/customers/{id}/kyc` | Supervisor-only (`KYC_VERIFY`) customer KYC status update |
+| **Teller** | `GET` | `/api/teller/accounts/{acc}` | Branch-isolated account detail & balance enquiry (`/statement` for history) |
+| **Teller** | `GET/POST` | `/api/teller/drawer` | Drawer status, `/open`, auditable `/adjust` (shortage/excess/replenishment), `/reconcile` |
+| **Teller** | `POST` | `/api/teller/drawer/reconciliations/{id}/verify` | Dual-control manager EOD cash reconciliation verification |
+| **Teller** | `POST` | `/api/teller/cash/deposit` | Atomic counter cash deposit (account + drawer ledger credit) |
+| **Teller** | `POST` | `/api/teller/cash/withdrawal` | Verified counter cash withdrawal with account & drawer balance validation |
+| **Teller** | `POST` | `/api/teller/transfers` | Assisted internal / same-branch / inter-branch / simulated NEFT-RTGS-IMPS transfer with AMFA |
+| **Teller** | `POST` | `/api/teller/transactions/{id}/reversal-request` | Log reversal request (`/reversals/{id}/decision` for manager approval) |
+| **Teller** | `GET/POST` | `/api/teller/cheques` | Cheque deposit/stop-payment register (`/cheques/{ref}/status` for clearing) |
+| **Teller** | `GET/POST` | `/api/teller/service-requests` | Branch service requests & `/decision` supervisor approval workflow |
+| **Teller** | `GET/POST/PATCH` | `/api/teller/complaints` | Customer disputes & complaints logging, escalation & supervisor resolution |
+| **Teller** | `GET` | `/api/teller/reports/daily` | Daily branch teller summary & `/reports/export/csv` downloadable audit CSV |
+| **Loan Officer** | `GET` | `/api/loan-officer/dashboard` | 9 KPI summary cards, monthly stats, pending tasks, upcoming EMIs & portfolio overview |
+| **Loan Officer** | `GET` | `/api/loan-officer/customers` | Branch-scoped loan customer search, KYC, employment/income, liabilities & exposures |
+| **Loan Officer** | `GET/POST` | `/api/loan-officer/applications` | Search, create (`PERSONAL`, `HOME`, `EDUCATION`, `VEHICLE`, `BUSINESS`, `GOLD`), assign & stage workflow |
+| **Loan Officer** | `GET/POST` | `/api/loan-officer/applications/{id}/documents` | Secure upload, download (`/documents/{docId}/download`), verify or reject supporting documents |
+| **Loan Officer** | `POST` | `/api/loan-officer/applications/{id}/credit-assessment` | Reducing-balance EMI, DTI, LTV, eligibility & risk rating calculator (`assessments/simulate` for preview) |
+| **Loan Officer** | `POST/GET` | `/api/loan-officer/applications/{id}/recommend` | Submit maker recommendation; `/approvals/{id}/decision` for Bank Manager/Admin final sanction |
+| **Loan Officer** | `POST/GET` | `/api/loan-officer/applications/{id}/disbursement-initiate` | Condition/beneficiary checks; `/disbursements/{id}/authorize` credits ledger & generates EMI schedule |
+| **Loan Officer** | `GET` | `/api/loan-officer/repayments/{loanId}` | Track amortization installments (`UPCOMING`, `DUE`, `PAID`, `OVERDUE`, `WAIVED`) |
+| **Loan Officer** | `GET/POST` | `/api/loan-officer/overdue` | DPD delinquency aging & `/overdue/{loanId}/follow-up` recovery commitment/escalation log |
+| **Loan Officer** | `GET/POST` | `/api/loan-officer/communications` | Internal notification dispatch & communication history audit |
+| **Loan Officer** | `GET` | `/api/loan-officer/portfolio` | Category distribution, approval ratios, monthly trends & `/reports/export/csv` |
+
+---
+
+## Bank Loan Officer Module Architecture (Migration V10)
+
+Flyway migration `V10__loan_officer_module_schema.sql` introduces 25 granular `LOAN_*` permissions (`role_permissions`), `loan_officer_profiles` (linking `EMP_ID`, `OFFICER_ID`, `branch_id`, `department`, and approval ceilings), and 8 lifecycle tables (`loan_documents`, `loan_document_verifications`, `loan_credit_assessments`, `loan_approval_requests`, `loan_disbursements`, `loan_follow_ups`, `loan_communications`, `loan_audit_logs`).
+
+* **Maker-Checker & Authority Controls:** `LOAN_OFFICER` submits underwriting recommendations (`APPROVAL_PENDING`) and disbursement readiness checks, while final sanction (`LOAN_FINAL_APPROVE`) and ledger release (`LOAN_DISBURSEMENT_APPROVE`) require independent `BANK_MANAGER` or `ADMIN` authorization (self-approval rejected).
+* **Financial Calculations:** Reducing-balance `EMI = P * r * (1+r)^n / ((1+r)^n - 1)`, `DTI = (Total Monthly Debt / Gross Monthly Income) * 100`, and `LTV = (Requested Loan / Collateral Value) * 100`.
+* **Branch & Assignment Isolation:** Officers access only their assigned branch's customers and unassigned or officer-assigned loan files; `LN_SEED_BR2_01` / `CUST2001` in `BR002` return `403 Forbidden` to `BR001` staff.
+
+---
+
+## Bank Teller Module Architecture (Migration V9)
+
+Flyway migration `V9__teller_module_schema.sql` adds fine-grained authority RBAC (`permissions`, `role_permissions`), multi-branch assignment & isolation (`branches`, `teller_profiles`), atomic counter cash management (`teller_drawers`, `cash_drawer_transactions`, `cash_reconciliations`), cheque clearing (`cheques`), lifecycle service requests (`service_requests`), disputes (`customer_complaints`), reversal requests (`transaction_reversal_requests`), and dual-control audit queues (`teller_approval_requests`).
+
+* **Segregation of Duties:** Tellers cannot self-approve reversals, clear/bounce cheques, approve KYC verification, resolve escalated complaints, or verify their own EOD drawer reconciliations; `BANK_MANAGER` and `ADMIN` enforce dual control and cannot approve requests they themselves initiated.
+* **Branch Isolation:** Staff assigned to `BR001` are blocked with HTTP `403` from querying or transacting on `BR002` customer records and accounts.
 
 For full architectural designs and Mermaid diagrams, consult [ARCHITECTURE.md](file:///C:/Users/kfork/.gemini/antigravity/scratch/banking-transaction-system/ARCHITECTURE.md).
 

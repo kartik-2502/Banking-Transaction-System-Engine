@@ -30,6 +30,10 @@ public class Account {
     @Column(nullable = false, length = 20)
     private AccountStatus status = AccountStatus.ACTIVE;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "branch_id")
+    private Branch branch;
+
     @Version
     @Column(nullable = false)
     private Long version = 0L;
@@ -101,6 +105,14 @@ public class Account {
 
     public void setStatus(AccountStatus status) {
         this.status = status;
+    }
+
+    public Branch getBranch() {
+        return branch;
+    }
+
+    public void setBranch(Branch branch) {
+        this.branch = branch;
     }
 
     public Long getVersion() {

@@ -64,12 +64,14 @@ class SchemaAndRepositoryIntegrationTest {
     @DisplayName("Verify initial seed data populated by migration V2")
     void testSeedDataPopulation() {
         // Roles check
-        assertEquals(5, roleRepository.count(), "All 5 standard roles must be seeded");
+        assertEquals(7, roleRepository.count(), "All 7 banking roles must be seeded");
         assertTrue(roleRepository.findByName(RoleName.ADMIN).isPresent());
         assertTrue(roleRepository.findByName(RoleName.CUSTOMER).isPresent());
         assertTrue(roleRepository.findByName(RoleName.TELLER).isPresent());
         assertTrue(roleRepository.findByName(RoleName.RISK_ANALYST).isPresent());
         assertTrue(roleRepository.findByName(RoleName.LOAN_OFFICER).isPresent());
+        assertTrue(roleRepository.findByName(RoleName.BANK_MANAGER).isPresent());
+        assertTrue(roleRepository.findByName(RoleName.AUDITOR).isPresent());
 
         // Users check
         assertTrue(userRepository.findByUsername("system_administrator").isPresent());

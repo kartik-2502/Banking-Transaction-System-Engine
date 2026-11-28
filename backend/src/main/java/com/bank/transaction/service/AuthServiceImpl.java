@@ -8,11 +8,14 @@ import com.bank.transaction.dto.mfa.ChangePasswordRequest;
 import com.bank.transaction.exception.InvalidTransactionException;
 import com.bank.transaction.model.ChallengeType;
 import com.bank.transaction.model.Customer;
+import com.bank.transaction.model.Permission;
 import com.bank.transaction.model.Role;
 import com.bank.transaction.model.RoleName;
 import com.bank.transaction.model.User;
 import com.bank.transaction.repository.CustomerRepository;
+import com.bank.transaction.repository.LoanOfficerProfileRepository;
 import com.bank.transaction.repository.RoleRepository;
+import com.bank.transaction.repository.TellerProfileRepository;
 import com.bank.transaction.repository.UserRepository;
 import com.bank.transaction.security.JwtTokenProvider;
 import org.slf4j.Logger;
@@ -45,6 +48,8 @@ public class AuthServiceImpl implements AuthService {
     private final JwtTokenProvider tokenProvider;
     private final AdaptiveMfaService adaptiveMfaService;
     private final SecurityEventService securityEventService;
+    private final TellerProfileRepository tellerProfileRepository;
+    private final LoanOfficerProfileRepository loanOfficerProfileRepository;
 
     public AuthServiceImpl(AuthenticationManager authenticationManager,
                            UserRepository userRepository,
@@ -53,7 +58,9 @@ public class AuthServiceImpl implements AuthService {
                            PasswordEncoder passwordEncoder,
                            JwtTokenProvider tokenProvider,
                            AdaptiveMfaService adaptiveMfaService,
-                           SecurityEventService securityEventService) {
+                           SecurityEventService securityEventService,
+                           TellerProfileRepository tellerProfileRepository,
+                           LoanOfficerProfileRepository loanOfficerProfileRepository) {
         this.authenticationManager = authenticationManager;
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
@@ -62,6 +69,8 @@ public class AuthServiceImpl implements AuthService {
         this.tokenProvider = tokenProvider;
         this.adaptiveMfaService = adaptiveMfaService;
         this.securityEventService = securityEventService;
+        this.tellerProfileRepository = tellerProfileRepository;
+        this.loanOfficerProfileRepository = loanOfficerProfileRepository;
     }
 
     @Override
@@ -101,9 +110,35 @@ public class AuthServiceImpl implements AuthService {
 
         List<String> roles = authentication.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
+                .filter(auth -> auth.startsWith("ROLE_"))
                 .collect(Collectors.toList());
 
-        return adaptiveMfaService.evaluateLogin(user, roles, clientContext);
+        List<String> permissions = authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .filter(auth -> !auth.startsWith("ROLE_"))
+                .distinct()
+                .sorted()
+                .collect(Collectors.toList());
+
+        AuthResponse response = adaptiveMfaService.evaluateLogin(user, roles, clientContext);
+        response.setPermissions(permissions);
+        tellerProfileRepository.findByUsernameWithDetails(user.getUsername()).ifPresent(tp -> {
+            response.setEmployeeId(tp.getEmployeeId());
+            response.setTellerId(tp.getTellerId());
+            response.setBranchCode(tp.getBranch().getBranchCode());
+            response.setBranchName(tp.getBranch().getBranchName());
+            response.setDrawerCode(tp.getDrawerCode());
+            response.setShiftStatus(tp.getShiftStatus());
+        });
+        loanOfficerProfileRepository.findByUsernameWithDetails(user.getUsername()).ifPresent(lp -> {
+            response.setEmployeeId(lp.getEmployeeId());
+            response.setOfficerId(lp.getOfficerId());
+            response.setDepartment(lp.getDepartment());
+            response.setBranchCode(lp.getBranch().getBranchCode());
+            response.setBranchName(lp.getBranch().getBranchName());
+            response.setShiftStatus(lp.getShiftStatus());
+        });
+        return response;
     }
 
     @Override
@@ -211,10 +246,34 @@ public class AuthServiceImpl implements AuthService {
         response.setEmail(user.getEmail());
         response.setEnabled(user.isEnabled());
         response.setRoles(user.getRoles().stream().map(r -> r.getName().name()).collect(Collectors.toList()));
+        response.setPermissions(user.getRoles().stream()
+                .flatMap(r -> r.getPermissions().stream())
+                .map(Permission::getName)
+                .distinct()
+                .sorted()
+                .collect(Collectors.toList()));
 
         customerRepository.findByUserId(user.getId()).ifPresent(c -> {
             response.setCustomerId(c.getId());
             response.setCustomerNumber(c.getCustomerNumber());
+        });
+
+        tellerProfileRepository.findByUsernameWithDetails(user.getUsername()).ifPresent(tp -> {
+            response.setEmployeeId(tp.getEmployeeId());
+            response.setTellerId(tp.getTellerId());
+            response.setBranchCode(tp.getBranch().getBranchCode());
+            response.setBranchName(tp.getBranch().getBranchName());
+            response.setDrawerCode(tp.getDrawerCode());
+            response.setShiftStatus(tp.getShiftStatus());
+        });
+
+        loanOfficerProfileRepository.findByUsernameWithDetails(user.getUsername()).ifPresent(lp -> {
+            response.setEmployeeId(lp.getEmployeeId());
+            response.setOfficerId(lp.getOfficerId());
+            response.setDepartment(lp.getDepartment());
+            response.setBranchCode(lp.getBranch().getBranchCode());
+            response.setBranchName(lp.getBranch().getBranchName());
+            response.setShiftStatus(lp.getShiftStatus());
         });
 
         return response;

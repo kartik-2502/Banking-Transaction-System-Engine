@@ -5,5 +5,7 @@ public enum RoleName {
     CUSTOMER,
     TELLER,
     RISK_ANALYST,
-    LOAN_OFFICER
+    LOAN_OFFICER,
+    BANK_MANAGER,
+    AUDITOR
 }

@@ -9,4 +9,5 @@ import java.util.List;
 @Repository
 public interface LoanStatusHistoryRepository extends JpaRepository<LoanStatusHistory, Long> {
     List<LoanStatusHistory> findByLoanIdOrderByCreatedAtDesc(Long loanId);
+    List<LoanStatusHistory> findByLoanIdOrderByCreatedAtAsc(Long loanId);
 }

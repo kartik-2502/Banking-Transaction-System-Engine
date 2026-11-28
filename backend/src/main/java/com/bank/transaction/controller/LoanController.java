@@ -70,6 +70,14 @@ public class LoanController {
         return ResponseEntity.ok(ApiResponse.ok("Customer loans retrieved successfully", loans));
     }
 
+    @GetMapping("/my")
+    @PreAuthorize("hasAnyRole('CUSTOMER', 'ADMIN')")
+    public ResponseEntity<ApiResponse<List<LoanResponse>>> getMyLoans(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        List<LoanResponse> loans = loanService.getMyLoans(userDetails.getUsername());
+        return ResponseEntity.ok(ApiResponse.ok("My loans retrieved successfully", loans));
+    }
+
     @PutMapping("/{loanId}/review")
     @PreAuthorize("hasAnyRole('LOAN_OFFICER', 'ADMIN')")
     public ResponseEntity<ApiResponse<LoanResponse>> reviewLoan(

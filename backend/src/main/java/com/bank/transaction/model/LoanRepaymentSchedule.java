@@ -39,7 +39,13 @@ public class LoanRepaymentSchedule {
     private OffsetDateTime paidDate;
 
     @Column(nullable = false, length = 20)
-    private String status = "PENDING"; // PENDING, PAID, OVERDUE
+    private String status = "PENDING"; // PENDING, UPCOMING, DUE, PAID, PARTIALLY_PAID, OVERDUE, WAIVED
+
+    @Column(name = "waived_amount", nullable = false, precision = 15, scale = 2)
+    private BigDecimal waivedAmount = BigDecimal.ZERO;
+
+    @Column(name = "last_payment_ref", length = 64)
+    private String lastPaymentRef;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt = OffsetDateTime.now();
@@ -140,4 +146,9 @@ public class LoanRepaymentSchedule {
     public OffsetDateTime getCreatedAt() {
         return createdAt;
     }
+
+    public BigDecimal getWaivedAmount() { return waivedAmount; }
+    public void setWaivedAmount(BigDecimal waivedAmount) { this.waivedAmount = waivedAmount; }
+    public String getLastPaymentRef() { return lastPaymentRef; }
+    public void setLastPaymentRef(String lastPaymentRef) { this.lastPaymentRef = lastPaymentRef; }
 }
